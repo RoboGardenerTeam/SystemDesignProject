@@ -1,9 +1,9 @@
-"""demo_controller controller."""
+"""wasd_controller controller."""
 
 
 from controller import Robot, Keyboard
-MAX_SPEED = 6
-TIME_STEP = 64
+MAX_SPEED = 5
+timestep = 64
 # create the Robot instance.
 robot = Robot()
 
@@ -11,33 +11,34 @@ robot = Robot()
 timestep = int(robot.getBasicTimeStep())
 
 keyboard = Keyboard()
-keyboard.enable(TIME_STEP)
+keyboard.enable(timestep)
 
 wheels = []
-wheelsNames = ['wheel1', 'wheel2', 'wheel3', 'wheel4']
+wheelsNames = ['front_left_wheel', 'front_right_wheel', 'rear_left_wheel', 'rear_right_wheel']
 for i in range(4):
     wheels.append(robot.getDevice(wheelsNames[i]))
     wheels[i].setPosition(float('inf'))
     wheels[i].setVelocity(0.0)
+
 def move(inp):
-    wheels[0].setVelocity(inp*0.5*MAX_SPEED)
-    wheels[1].setVelocity(inp*0.5*MAX_SPEED)
-    wheels[2].setVelocity(inp*0.5*MAX_SPEED)
-    wheels[3].setVelocity(inp*0.5*MAX_SPEED)
+    wheels[0].setVelocity(inp*MAX_SPEED)
+    wheels[1].setVelocity(inp*MAX_SPEED)
+    wheels[2].setVelocity(inp*MAX_SPEED)
+    wheels[3].setVelocity(inp*MAX_SPEED)
     
     
 def turn(inp):
-    wheels[0].setVelocity(inp*0.5*MAX_SPEED)
-    wheels[1].setVelocity(-inp*0.5*MAX_SPEED)
-    wheels[2].setVelocity(inp*0.5*MAX_SPEED)
-    wheels[3].setVelocity(-inp*0.5*MAX_SPEED)
+    wheels[0].setVelocity(inp*MAX_SPEED)
+    wheels[1].setVelocity(-inp*MAX_SPEED)
+    wheels[2].setVelocity(inp*MAX_SPEED)
+    wheels[3].setVelocity(-inp*MAX_SPEED)
     
 movement = 0
 turning = 0
 
 # Main loop:
 # - perform simulation steps until Webots is stopping the controller
-while robot.step(TIME_STEP) != -1:
+while robot.step(timestep) != -1:
     key=keyboard.getKey()
     if (key==ord('W')):
         if (movement < 1):
