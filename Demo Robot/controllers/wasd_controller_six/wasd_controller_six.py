@@ -15,6 +15,10 @@ timestep = int(robot.getBasicTimeStep())
 keyboard = Keyboard()
 keyboard.enable(timestep)
 
+# activate camera
+camera = robot.getDevice('front_camera')
+camera.enable(timestep)
+
 # set up wheels motor.
 wheels = []
 wheelsNames = ['left_front_wheel', 'right_front_wheel', 'left_rear_wheel', 'right_rear_wheel', 'left_mid_wheel', 'right_mid_wheel']
