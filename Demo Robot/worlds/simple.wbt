@@ -450,5 +450,5 @@ Robot {
   boundingObject USE base_link
   physics Physics {
   }
-  controller "wasd_controller_six"
+  controller "<extern>"
 }
