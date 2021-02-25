@@ -32,6 +32,10 @@ for i in range(6):
 gps = robot.getDevice('gps')
 gps.enable(timestep)
 
+# the coordinates the robot moves on
+#2D list. [[x1,y1], [x2,y2]...[xn,yn]]
+coordinates = []
+
 
 # define movement
 def move(direction):
@@ -72,24 +76,20 @@ while robot.step(timestep) != -1:
     # x, y and z coordinates, respectively
     if (key == ord('W')):
         move('forward')
-        print ("X:", gps.getValues()[0])
-        print ("Y:", gps.getValues()[1])
-        print ("Z:", gps.getValues()[2]) 
+        moves = [gps.getValues()[0], gps.getValues()[1]]
+        coordinates.append(moves)
     elif (key == ord('S')):
         move('backward')
-        print ("X:", gps.getValues()[0])
-        print ("Y:", gps.getValues()[1])
-        print ("Z:", gps.getValues()[2])   
+        moves = [gps.getValues()[0], gps.getValues()[1]]
+        coordinates.append(moves)   
     elif (key == ord('A')):
         turn('left')
-        print ("X:", gps.getValues()[0])
-        print ("Y:", gps.getValues()[1])
-        print ("Z:", gps.getValues()[2]) 
+        moves = [gps.getValues()[0], gps.getValues()[1]]
+        coordinates.append(moves) 
     elif (key == ord('D')):
         turn('right')
-        print ("X:", gps.getValues()[0])
-        print ("Y:", gps.getValues()[1])
-        print ("Z:", gps.getValues()[2]) 
+        moves = [gps.getValues()[0], gps.getValues()[1]]
+        coordinates.append(moves) 
     else:
         move('stop')
         turn('stop')    
