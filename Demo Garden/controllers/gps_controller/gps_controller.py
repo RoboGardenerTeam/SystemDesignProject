@@ -2,6 +2,7 @@
 
 from controller import Robot, Keyboard
 from enum import Enum
+from math import sqrt
 
 MAX_SPEED = 5
 GRID_RESOLUTION = 0.2 # in meters
@@ -44,11 +45,13 @@ class GPSRobot:
         self.coordinates = []
         self.tracking = False
         self.tracking_initiated = False
+        self.tracking_start_position = None
 
     def run_loop(self):
         while self.robot.step(self.timestep) != -1:
+            y, _, x = self.gps.getValues()
+
             if self.tracking:
-                y, _, x = self.gps.getValues()
                 self.coordinates.append((x, y))
 
             key = self.keyboard.getKey()
@@ -65,10 +68,14 @@ class GPSRobot:
                     print('STARTED TRACKING')
                     self.tracking = True
                     self.tracking_initiated = True
+                    self.tracking_start_position = (x, y)
                 elif self.tracking_initiated and self.tracking:
-                    print('FINISHED TRACKING')
-                    self.tracking = False
-                    self.build_garden_grid()
+                    if coord_distance(self.tracking_start_position, (x, y)) > GRID_RESOLUTION:
+                        print('CONTINUE TRACKING, NOT CLOSE ENOUGH TO TRACKING START POSITION')
+                    else:
+                        print('FINISHED TRACKING')
+                        self.tracking = False
+                        self.grid = build_garden_grid(self.coordinates)
             else:
                 self.move('stop')
                 self.turn('stop')
@@ -97,12 +104,20 @@ class GPSRobot:
         self.wheels[4].setVelocity(inp * MAX_SPEED)
         self.wheels[5].setVelocity(-inp * MAX_SPEED)
 
-    def build_garden_grid(self):
-        top_y, right_x, bottom_y, left_x = find_extremes(self.coordinates)
-        grid = build_empty_grid(self.coordinates, top_y, right_x, bottom_y, left_x)
+def coord_distance(a, b):
+    x_delta = a[0] - b[0]
+    y_delta = a[1] - b[1]
 
-        fill_garden_boundary(self.coordinates, grid)
-        print(grid)
+    return sqrt(x_delta**2 + y_delta**2)
+
+def build_garden_grid(coordinates):
+    top_y, right_x, bottom_y, left_x = find_extremes(coordinates)
+    grid = build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x)
+
+    fill_grid_obstacle(coordinates, grid)
+    print(grid)
+
+    return grid
 
 def print_grid(grid):
     for row in grid:
@@ -150,11 +165,11 @@ def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
 
     return grid
 
-def fill_garden_boundary(boundary_coordinates, grid):
+def fill_grid_obstacle(obstacle_coordinates, grid):
     top_left_x = grid[0][0].x
     top_left_y = grid[0][0].y
 
-    for (x, y) in boundary_coordinates:
+    for (x, y) in obstacle_coordinates:
         row = int(round(abs(x - top_left_x), ROUND_PRECISION) / GRID_RESOLUTION)
         col = int(round(abs(y - top_left_y), ROUND_PRECISION) / GRID_RESOLUTION)
 
