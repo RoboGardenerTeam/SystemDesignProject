@@ -117,6 +117,8 @@ Robot {
   rotation 0 1 0 -5.307179586466759e-06
   scale 1.5 1.5 1.5
   children [
+    GPS {
+    }
     DEF base_link Shape {
       appearance PBRAppearance {
         baseColor 0.0659342 0.501793 0.00683604
@@ -526,5 +528,5 @@ Robot {
   boundingObject USE base_link
   physics Physics {
   }
-  controller "wasd_controller_six"
+  controller "gps_controller"
 }
