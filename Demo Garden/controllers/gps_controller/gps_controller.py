@@ -3,12 +3,13 @@
 from controller import Robot, Keyboard
 from enum import Enum
 from math import sqrt
+from collections import deque
 
 MAX_SPEED = 5
 GRID_RESOLUTION = 0.15 # in meters
 ROUND_PRECISION = 2 # number of digits after decimal point in GRID_RESOLUTION
 
-class GridNodeState(Enum):
+class GridNodeType(Enum):
     EMPTY = 1
     OBSTACLE = 2
 
@@ -16,14 +17,17 @@ class GridNode:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.state = GridNodeState.EMPTY
+        self.type = GridNodeType.EMPTY
+        self.distance = -1
 
     def __repr__(self):
-        # return f'|({self.x}, {self.y}): {self.state.name}\t|'
-        if self.state is GridNodeState.OBSTACLE:
-            return '\033[93m|x\033[0m'
+        # return f'|({self.x}, {self.y}): {self.type.name}\t|'
+        if self.type is GridNodeType.OBSTACLE:
+            return '\033[93m| x \033[0m'
+        elif self.distance != -1:
+            return f'|{self.distance: ^3}'
         else:
-            return '|o'
+            return '|   '
 
 class GPSRobot:
     def __init__(self):
@@ -87,6 +91,10 @@ class GPSRobot:
                         print('FINISHED TRACKING')
                         self.tracking = False
                         self.grid = build_garden_grid(self.coordinates)
+                        print_grid(self.grid)
+            elif (key == ord('M')):
+                wavefront(self.grid, (x, y))
+                print_grid(self.grid)
             else:
                 self.move('stop')
                 self.turn('stop')
@@ -124,18 +132,16 @@ def coord_distance(a, b):
 def build_garden_grid(coordinates):
     top_y, right_x, bottom_y, left_x = find_extremes(coordinates)
     grid = build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x)
-
     fill_grid_obstacle(coordinates, grid)
-    print_grid(grid)
 
     return grid
 
 def print_grid(grid):
     for row in grid:
         for node in row:
-            print(node, end='|')
+            print(node, end='')
 
-        print('')
+        print('|')
 
 def find_extremes(coordinates):
     top_y = float('-inf')
@@ -177,14 +183,66 @@ def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
     return grid
 
 def fill_grid_obstacle(obstacle_coordinates, grid):
+    for (x, y) in obstacle_coordinates:
+        row, col = coords_to_grid_indices(grid, (x, y))
+        grid[row][col].type = GridNodeType.OBSTACLE
+
+def wavefront(grid, robot_coords):
+    row, col = coords_to_grid_indices(grid, robot_coords)
+    start_node = grid[row][col]
+    start_node.distance = 0
+
+    print(row, col)
+    print(grid[row][col].distance)
+
+    explored = set()
+    frontier = deque()
+    frontier.appendleft((start_node, (row, col)))
+
+    while len(frontier) > 0:
+        current_node, (row, col) = frontier.pop()
+        explored.add(current_node)
+
+        # top
+        if row != 0:
+            top = grid[row - 1][col]
+
+            if top.type is GridNodeType.EMPTY and not top in explored:
+                top.distance = current_node.distance + 1
+                frontier.appendleft((top, (row - 1, col)))
+
+        # right
+        if col != len(grid[0]) - 1:
+            right = grid[row][col + 1]
+
+            if right.type is GridNodeType.EMPTY and not right in explored:
+                right.distance = current_node.distance + 1
+                frontier.appendleft((right, (row, col + 1)))
+
+        # bottom
+        if row != len(grid) - 1:
+            bottom = grid[row + 1][col]
+
+            if bottom.type is GridNodeType.EMPTY and not bottom in explored:
+                bottom.distance = current_node.distance + 1
+                frontier.appendleft((bottom, (row + 1, col)))
+
+        # left
+        if col != 0:
+            left = grid[row][col - 1]
+
+            if left.type is GridNodeType.EMPTY and not left in explored:
+                left.distance = current_node.distance + 1
+                frontier.appendleft((left, (row, col - 1)))
+
+def coords_to_grid_indices(grid, coords):
     top_left_x = grid[0][0].x
     top_left_y = grid[0][0].y
 
-    for (x, y) in obstacle_coordinates:
-        row = int(round(abs(x - top_left_x), ROUND_PRECISION) / GRID_RESOLUTION)
-        col = int(round(abs(y - top_left_y), ROUND_PRECISION) / GRID_RESOLUTION)
+    row = int(round(abs(coords[0] - top_left_x), ROUND_PRECISION) / GRID_RESOLUTION)
+    col = int(round(abs(coords[1] - top_left_y), ROUND_PRECISION) / GRID_RESOLUTION)
 
-        grid[row][col].state = GridNodeState.OBSTACLE
+    return (row, col)
 
 def main():
     robot = GPSRobot()
