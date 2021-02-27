@@ -7,7 +7,7 @@ from collections import deque
 
 MAX_SPEED = 5
 GRID_RESOLUTION = 0.15 # in meters
-ROUND_PRECISION = 2 # number of digits after decimal point in GRID_RESOLUTION
+ROUND_PRECISION = 2 # number of digits after decimal point in GRID_RESOLUTION, must keep in sync with GRID_RESOLUTION!
 
 class GridNodeType(Enum):
     EMPTY = 1
@@ -18,14 +18,14 @@ class GridNode:
         self.x = x
         self.y = y
         self.type = GridNodeType.EMPTY
-        self.distance = -1
+        self.distance = None
+        self.step = None
 
     def __repr__(self):
-        # return f'|({self.x}, {self.y}): {self.type.name}\t|'
         if self.type is GridNodeType.OBSTACLE:
-            return '\033[93m| x \033[0m'
-        elif self.distance != -1:
-            return f'|{self.distance: ^3}'
+            return '|\033[93m x \033[0m'
+        elif self.step is not None:
+            return f'|{self.step: ^3}'
         else:
             return '|   '
 
@@ -55,6 +55,7 @@ class GPSRobot:
         self.tracking_initiated = False
         self.tracking_start_position = None
         self.prefix = False
+        self.planned = False
 
     def run_loop(self):
         while self.robot.step(self.timestep) != -1:
@@ -75,14 +76,16 @@ class GPSRobot:
             elif (key == ord('P')):
                 self.prefix = True
                 print('PREFIX ENGAGED')
+            # start tracking boundary
             elif (key == ord('T')):
                 if self.prefix and not self.tracking_initiated and not self.tracking:
                     print('STARTED TRACKING')
                     self.tracking = True
                     self.tracking_initiated = True
                     self.tracking_start_position = (x, y)
-                    self.prefix = False
+
                     print('PREFIX DISENGAGED')
+                    self.prefix = False
                 elif self.prefix and self.tracking_initiated and self.tracking:
                     if coord_distance(self.tracking_start_position, (x, y)) > GRID_RESOLUTION:
                         print('CONTINUE TRACKING: MOVE CLOSER TO TRACKING START POSITION')
@@ -90,11 +93,18 @@ class GPSRobot:
                     else:
                         print('FINISHED TRACKING')
                         self.tracking = False
+
                         self.grid = build_garden_grid(self.coordinates)
                         print_grid(self.grid)
+            # start initial plan
             elif (key == ord('M')):
-                wavefront(self.grid, (x, y))
-                print_grid(self.grid)
+                if not self.planned:
+                    self.planned = True
+
+                    wavefront(self.grid, (x, y))
+                    self.nodes_to_cover = initial_path(self.grid, (x, y))
+
+                    print_grid(self.grid)
             else:
                 self.move('stop')
                 self.turn('stop')
@@ -192,9 +202,7 @@ def wavefront(grid, robot_coords):
     start_node = grid[row][col]
     start_node.distance = 0
 
-    print(row, col)
-    print(grid[row][col].distance)
-
+    cur_row, cur_col = coords_to_grid_indices(grid, robot_coords)
     explored = set()
     frontier = deque()
     frontier.appendleft((start_node, (row, col)))
@@ -234,6 +242,125 @@ def wavefront(grid, robot_coords):
             if left.type is GridNodeType.EMPTY and not left in explored:
                 left.distance = current_node.distance + 1
                 frontier.appendleft((left, (row, col - 1)))
+
+def initial_path(grid, robot_coords):
+    cur_row, cur_col = coords_to_grid_indices(grid, robot_coords)
+    current_node = grid[cur_row][cur_col]
+
+    explored = set()
+    current_node.step = 0
+
+    path = []
+
+    while True:
+        explored.add(current_node)
+        path.append(current_node)
+
+        next_node, (next_row, next_col) = find_highest_distance_neighbor(grid, current_node, (cur_row, cur_col), explored)
+
+        # no direct neighbor node 
+        if next_node is None:
+            next_node, (next_row, next_col) = search_for_unvisited_node(grid, current_node, (cur_row, cur_col), explored)
+
+            # truly no more nodes to visit
+            if next_node is None:
+                break
+
+        next_node.step = current_node.step + 1
+        current_node, (cur_row, cur_col) = next_node, (next_row, next_col)
+
+    return path
+
+def find_highest_distance_neighbor(grid, node, indices, explored):
+    row, col = indices[0], indices[1]
+
+    max_distance = -1
+    max_distance_node = None
+    max_dist_row, max_dist_col = -1, -1
+
+    # top
+    if row != 0:
+        top = grid[row - 1][col]
+
+        if top.type is GridNodeType.EMPTY and top.distance > max_distance and top not in explored:
+            max_distance_node = top
+            max_dist_row, max_dist_col = row - 1, col
+
+    # right
+    if col != len(grid[0]) - 1:
+        right = grid[row][col + 1]
+
+        if right.type is GridNodeType.EMPTY and right.distance > max_distance and right not in explored:
+            max_distance_node = right
+            max_dist_row, max_dist_col = row, col + 1
+
+    # bottom
+    if row != len(grid) - 1:
+        bottom = grid[row + 1][col]
+
+        if bottom.type is GridNodeType.EMPTY and bottom.distance > max_distance and bottom not in explored:
+            max_distance_node = bottom
+            max_dist_row, max_dist_col = row + 1, col
+
+    # left
+    if col != 0:
+        left = grid[row][col - 1]
+
+        if left.type is GridNodeType.EMPTY and left.distance > max_distance and left not in explored:
+            max_distance_node = left
+            max_dist_row, max_dist_col = row, col - 1
+
+    return (max_distance_node, (max_dist_row, max_dist_col))
+
+def search_for_unvisited_node(grid, node, indices, already_visited_nodes):
+    row, col = indices[0], indices[1]
+
+    explored = set()
+    frontier = deque()
+    frontier.appendleft((node, (row, col)))
+
+    while len(frontier) > 0:
+        current_node, (row, col) = frontier.pop()
+        explored.add(current_node)
+
+        # we have found a node we need to visit!
+        if current_node not in already_visited_nodes:
+            return (current_node, (row, col))
+
+        # top
+        if row != 0:
+            top = grid[row - 1][col]
+
+            if top.type is GridNodeType.EMPTY and not top in explored:
+                top.distance = current_node.distance + 1
+                frontier.appendleft((top, (row - 1, col)))
+
+        # right
+        if col != len(grid[0]) - 1:
+            right = grid[row][col + 1]
+
+            if right.type is GridNodeType.EMPTY and not right in explored:
+                right.distance = current_node.distance + 1
+                frontier.appendleft((right, (row, col + 1)))
+
+        # bottom
+        if row != len(grid) - 1:
+            bottom = grid[row + 1][col]
+
+            if bottom.type is GridNodeType.EMPTY and not bottom in explored:
+                bottom.distance = current_node.distance + 1
+                frontier.appendleft((bottom, (row + 1, col)))
+
+        # left
+        if col != 0:
+            left = grid[row][col - 1]
+
+            if left.type is GridNodeType.EMPTY and not left in explored:
+                left.distance = current_node.distance + 1
+                frontier.appendleft((left, (row, col - 1)))
+
+    return (None, (-1, -1))
+
 
 def coords_to_grid_indices(grid, coords):
     top_left_x = grid[0][0].x
