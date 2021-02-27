@@ -5,8 +5,8 @@ from enum import Enum
 from math import sqrt
 
 MAX_SPEED = 5
-GRID_RESOLUTION = 0.2 # in meters
-ROUND_PRECISION = 1 # number of digits after decimal point in GRID_RESOLUTION
+GRID_RESOLUTION = 0.15 # in meters
+ROUND_PRECISION = 2 # number of digits after decimal point in GRID_RESOLUTION
 
 class GridNodeState(Enum):
     EMPTY = 1
@@ -19,7 +19,11 @@ class GridNode:
         self.state = GridNodeState.EMPTY
 
     def __repr__(self):
-        return f'({self.x}, {self.y}): {self.state.name}'
+        # return f'|({self.x}, {self.y}): {self.state.name}\t|'
+        if self.state is GridNodeState.OBSTACLE:
+            return '\033[93m|x\033[0m'
+        else:
+            return '|o'
 
 class GPSRobot:
     def __init__(self):
@@ -46,6 +50,7 @@ class GPSRobot:
         self.tracking = False
         self.tracking_initiated = False
         self.tracking_start_position = None
+        self.prefix = False
 
     def run_loop(self):
         while self.robot.step(self.timestep) != -1:
@@ -63,15 +68,21 @@ class GPSRobot:
                 self.turn('left')
             elif (key == ord('D')):
                 self.turn('right')
+            elif (key == ord('P')):
+                self.prefix = True
+                print('PREFIX ENGAGED')
             elif (key == ord('T')):
-                if not self.tracking_initiated and not self.tracking:
+                if self.prefix and not self.tracking_initiated and not self.tracking:
                     print('STARTED TRACKING')
                     self.tracking = True
                     self.tracking_initiated = True
                     self.tracking_start_position = (x, y)
-                elif self.tracking_initiated and self.tracking:
+                    self.prefix = False
+                    print('PREFIX DISENGAGED')
+                elif self.prefix and self.tracking_initiated and self.tracking:
                     if coord_distance(self.tracking_start_position, (x, y)) > GRID_RESOLUTION:
-                        print('CONTINUE TRACKING, NOT CLOSE ENOUGH TO TRACKING START POSITION')
+                        print('CONTINUE TRACKING: MOVE CLOSER TO TRACKING START POSITION')
+                        print(f'Current position: ({x}, {y}) | Tracking start position: ({self.tracking_start_position[0]}, {self.tracking_start_position[1]})')
                     else:
                         print('FINISHED TRACKING')
                         self.tracking = False
@@ -115,14 +126,14 @@ def build_garden_grid(coordinates):
     grid = build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x)
 
     fill_grid_obstacle(coordinates, grid)
-    print(grid)
+    print_grid(grid)
 
     return grid
 
 def print_grid(grid):
     for row in grid:
         for node in row:
-            print(node, end=' ')
+            print(node, end='|')
 
         print('')
 
