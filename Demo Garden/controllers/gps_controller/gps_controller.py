@@ -4,6 +4,7 @@ from controller import Robot, Keyboard
 from enum import Enum
 from math import sqrt
 from collections import deque
+from heapq import *
 
 MAX_SPEED = 5
 GRID_RESOLUTION = 0.15 # in meters
@@ -14,9 +15,11 @@ class GridNodeType(Enum):
     OBSTACLE = 2
 
 class GridNode:
-    def __init__(self, x, y):
+    def __init__(self, x, y, indices):
         self.x = x
         self.y = y
+        self.row = indices[0]
+        self.col = indices[1]
         self.type = GridNodeType.EMPTY
         self.distance = None
         self.step = None
@@ -25,7 +28,7 @@ class GridNode:
         if self.type is GridNodeType.OBSTACLE:
             return '|\033[93m x \033[0m'
         elif self.step is not None:
-            return f'|{self.step: ^3}'
+            return f'|{self.step: >3}'
         else:
             return '|   '
 
@@ -102,9 +105,12 @@ class GPSRobot:
                     self.planned = True
 
                     wavefront(self.grid, (x, y))
-                    self.nodes_to_cover = initial_path(self.grid, (x, y))
+                    nodes_to_visit = initial_nodes_to_visit(self.grid, (x, y))
 
                     print_grid(self.grid)
+
+                    self.create_total_path(nodes_to_visit)
+                    print(self.total_path)
             else:
                 self.move('stop')
                 self.turn('stop')
@@ -132,6 +138,145 @@ class GPSRobot:
         self.wheels[3].setVelocity(-inp * MAX_SPEED)
         self.wheels[4].setVelocity(inp * MAX_SPEED)
         self.wheels[5].setVelocity(-inp * MAX_SPEED)
+
+    def create_total_path(self, nodes_to_visit):
+        y, _, x = self.gps.getValues()
+        start_row, start_col = coords_to_grid_indices(self.grid, (x, y))
+        start_node = self.grid[start_row][start_col]
+        print(f'start_node: {start_node}')
+
+        self.total_path = []
+
+        while len(nodes_to_visit) > 0:
+            goal_node = nodes_to_visit.pop()
+            path = self.path_to_node(start_node, goal_node)
+            print(path)
+            self.total_path += path
+            start_node = self.total_path[-1]
+
+    def path_to_node(self, start_node, goal_node):
+        class AStarNode():
+            def __init__(self, grid_node, parent_astar_node, g_cost, h_cost):
+                self.grid_node = grid_node
+                self.parent_astar_node = parent_astar_node
+                self.g_cost = g_cost
+                self.h_cost = h_cost
+
+            def __repr__(self):
+                return f'{self.grid_node} {self.g_cost}+{self.h_cost}'
+
+            def __lt__(self, other):
+                return self.g_cost < other.g_cost
+
+        # manhattan distance
+        def calculate_heuristic(node, goal_node):
+            return abs(node.row - goal_node.row) + abs(node.col - goal_node.col)
+
+        def astar_node_children(grid, astar_node, goal_grid_node):
+            row = astar_node.grid_node.row
+            col = astar_node.grid_node.col
+
+            children = []
+
+            # top
+            if row != 0:
+                top_grid_node = grid[row - 1][col]
+
+                if top_grid_node.type is GridNodeType.EMPTY:
+                    child_node = AStarNode(top_grid_node,
+                                           astar_node,
+                                           astar_node.g_cost + 1,
+                                           calculate_heuristic(top_grid_node, goal_grid_node))
+                    children.append(child_node)
+
+            # right
+            if col != len(grid[0]) - 1:
+                right_grid_node = grid[row][col + 1]
+
+                if right_grid_node.type is GridNodeType.EMPTY:
+                    child_node = AStarNode(right_grid_node,
+                                           astar_node,
+                                           astar_node.g_cost + 1,
+                                           calculate_heuristic(right_grid_node, goal_grid_node))
+                    children.append(child_node)
+
+            # bottom
+            if col != len(grid) - 1:
+                bottom_grid_node = grid[row + 1][col]
+
+                if bottom_grid_node.type is GridNodeType.EMPTY:
+                    child_node = AStarNode(bottom_grid_node,
+                                           astar_node,
+                                           astar_node.g_cost + 1,
+                                           calculate_heuristic(bottom_grid_node, goal_grid_node))
+                    children.append(child_node)
+
+            # left
+            if col != 0:
+                left_grid_node = grid[row][col - 1]
+
+                if left_grid_node.type is GridNodeType.EMPTY:
+                    child_node = AStarNode(left_grid_node,
+                                           astar_node,
+                                           astar_node.g_cost + 1,
+                                           calculate_heuristic(left_grid_node, goal_grid_node))
+                    children.append(child_node)
+
+            return children
+
+        def frontier_contains(frontier, astar_node):
+            for cost, frontier_astar_node in frontier:
+                if astar_node.grid_node == frontier_astar_node.grid_node:
+                    return (cost, frontier_astar_node)
+
+            return None
+
+        print(f'start: {start_node} -> goal: {goal_node}')
+        g_cost = 0
+        h_cost = calculate_heuristic(start_node, goal_node)
+        frontier = [(g_cost + h_cost, AStarNode(start_node, None, g_cost, h_cost))]
+        explored = set()
+
+        while frontier:
+            print(f'frontier size: {len(frontier)}')
+            print(f'frontier: {frontier}')
+            astar_node = heappop(frontier)[1]
+            print(f'popped node: {astar_node.grid_node}')
+
+            # return path
+            if astar_node.grid_node == goal_node:
+                print('hit goal node')
+                path = [astar_node.grid_node]
+                current_astar_node = astar_node.parent_astar_node
+
+                while current_astar_node is not None:
+                    print(f'parent: {current_astar_node}')
+                    path.append(current_astar_node.grid_node)
+                    current_astar_node = current_astar_node.parent_astar_node
+
+                path.reverse()
+                return path
+
+            explored.add(astar_node.grid_node)
+
+            for astar_child in astar_node_children(self.grid, astar_node, goal_node):
+                print(f'child: {astar_child.grid_node}')
+                cost_and_frontier_astar_node_tuple = frontier_contains(frontier, astar_child)
+                astar_child_g_and_h_cost = astar_child.g_cost + astar_child.h_cost
+
+                print(f'cost_and_frontier_astar_node_tuple: {cost_and_frontier_astar_node_tuple}')
+
+                if astar_child.grid_node not in explored and cost_and_frontier_astar_node_tuple is None:
+                    print('HERE')
+                    heappush(frontier, (astar_child_g_and_h_cost, astar_child))
+                elif cost_and_frontier_astar_node_tuple is not None:
+                    print('HI')
+                    if astar_child_g_and_h_cost < cost_and_frontier_astar_node_tuple[0]:
+                        del frontier[[astar_child.grid_node == frontier_astar_node.grid_node for _, frontier_astar_node in frontier].index(True)]
+                        heapify(frontier)
+                        heappush(frontier, (astar_child_g_and_h_cost, astar_child))
+
+            print('looping back')
 
 def coord_distance(a, b):
     x_delta = a[0] - b[0]
@@ -188,7 +333,7 @@ def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
             node_x = round(left_x + ((col + 1) * GRID_RESOLUTION), ROUND_PRECISION)
             node_y = round(top_y - ((row + 1) * GRID_RESOLUTION), ROUND_PRECISION)
 
-            grid[row].append(GridNode(node_x, node_y))
+            grid[row].append(GridNode(node_x, node_y, (row, col)))
 
     return grid
 
@@ -243,18 +388,18 @@ def wavefront(grid, robot_coords):
                 left.distance = current_node.distance + 1
                 frontier.appendleft((left, (row, col - 1)))
 
-def initial_path(grid, robot_coords):
+def initial_nodes_to_visit(grid, robot_coords):
     cur_row, cur_col = coords_to_grid_indices(grid, robot_coords)
     current_node = grid[cur_row][cur_col]
 
     explored = set()
     current_node.step = 0
 
-    path = []
+    path = deque()
 
     while True:
         explored.add(current_node)
-        path.append(current_node)
+        path.appendleft(current_node)
 
         next_node, (next_row, next_col) = find_highest_distance_neighbor(grid, current_node, (cur_row, cur_col), explored)
 
