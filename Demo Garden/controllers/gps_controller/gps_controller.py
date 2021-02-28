@@ -9,7 +9,6 @@ import numpy as np
 
 MAX_SPEED = 5
 GRID_RESOLUTION = 0.15 # in meters
-ROUND_PRECISION = 2 # number of digits after decimal point in GRID_RESOLUTION, must keep in sync with GRID_RESOLUTION!
 
 class GridNodeType(Enum):
     EMPTY = 1
@@ -27,11 +26,13 @@ class GridNode:
 
     def __repr__(self):
         if self.type is GridNodeType.OBSTACLE:
-            return f'|\033[93m x \033[0m'
+            return f'\033[93m x \033[0m'
         elif self.step is not None:
-            return f'|{self.step: >3}'
+            return f'{self.step: >3}'
+        elif self.distance is not None:
+            return f'{self.distance: >3}'
         else:
-            return '|   '
+            return '   '
 
 class GPSRobot:
     def __init__(self):
@@ -98,25 +99,29 @@ class GPSRobot:
                 elif self.prefix and self.tracking_initiated and self.tracking:
                     if coord_distance(self.tracking_start_position, (x, y)) > GRID_RESOLUTION:
                         print('CONTINUE TRACKING: MOVE CLOSER TO TRACKING START POSITION')
-                        print(f'Current position: ({x}, {y}) | Tracking start position: ({self.tracking_start_position[0]}, {self.tracking_start_position[1]})')
+                        print(f'Current position: ({x}, {y}) \t -> Tracking start position: ({self.tracking_start_position[0]}, {self.tracking_start_position[1]})')
                     else:
                         print('FINISHED TRACKING')
                         self.tracking = False
 
                         self.grid = build_garden_grid(self.coordinates)
+                        print('-----   GARDEN BOUNDARY   -----')
                         print_grid(self.grid)
             # start initial plan
             elif (key == ord('M')):
                 if not self.planned:
-                    print('PLAN PATH')
                     self.planned = True
 
                     wavefront(self.grid, (x, y))
-                    nodes_to_visit = initial_nodes_to_visit(self.grid, (x, y))
+                    print('-----   WAVEFRONT (DISTANCE TRANSFORM)   -----')
+                    print_grid(self.grid)
 
+                    nodes_to_visit = initial_nodes_to_visit(self.grid, (x, y))
+                    print('-----   NODES TO VISIT IN ORDER   -----')
                     print_grid(self.grid)
 
                     self.create_total_path(nodes_to_visit)
+                    print('-----   COMPLETE PATH TO COVER ALL NODES TO BE VISITED   -----')
                     print(self.total_path)
             # initiate autonomous movement
             elif (key == ord('I')):
@@ -133,6 +138,7 @@ class GPSRobot:
                 cur_row, cur_col = coords_to_grid_indices(self.grid, (x, y))
                 cur_row = clamp(cur_row, 0, len(self.grid) - 1)
                 cur_col = clamp(cur_row, 0, len(self.grid[0]) - 1)
+
                 current_node = self.grid[cur_row][cur_col]
                 target_node = self.total_path[0]
 
@@ -327,7 +333,7 @@ def build_garden_grid(coordinates):
 def print_grid(grid):
     for row in grid:
         for node in row:
-            print(node, end='')
+            print('|' + str(node), end='')
 
         print('|')
 
@@ -351,11 +357,8 @@ def find_extremes(coordinates):
     return (top_y, right_x, bottom_y, left_x)
 
 def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
-    num_rows = int(((top_y - bottom_y) // GRID_RESOLUTION) + 1)
-    num_cols = int(((right_x - left_x) // GRID_RESOLUTION) + 1)
-
-    left_x = round(left_x, ROUND_PRECISION)
-    top_y = round(top_y, ROUND_PRECISION)
+    num_rows = int(((top_y - bottom_y) / GRID_RESOLUTION) + 1)
+    num_cols = int(((right_x - left_x) / GRID_RESOLUTION) + 1)
 
     grid = []
 
@@ -363,8 +366,8 @@ def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
         grid.append([])
 
         for col in range(num_cols):
-            node_x = round(left_x + ((col + 1) * GRID_RESOLUTION), ROUND_PRECISION)
-            node_y = round(top_y - ((row + 1) * GRID_RESOLUTION), ROUND_PRECISION)
+            node_x = left_x + ((col + 1) * GRID_RESOLUTION)
+            node_y = top_y - ((row + 1) * GRID_RESOLUTION)
 
             grid[row].append(GridNode(node_x, node_y, (row, col)))
 
