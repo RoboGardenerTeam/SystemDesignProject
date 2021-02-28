@@ -5,6 +5,7 @@ from enum import Enum
 from math import sqrt
 from collections import deque
 from heapq import *
+import numpy as np
 
 MAX_SPEED = 5
 GRID_RESOLUTION = 0.15 # in meters
@@ -26,7 +27,7 @@ class GridNode:
 
     def __repr__(self):
         if self.type is GridNodeType.OBSTACLE:
-            return '|\033[93m x \033[0m'
+            return f'|\033[93m x \033[0m'
         elif self.step is not None:
             return f'|{self.step: >3}'
         else:
@@ -53,12 +54,17 @@ class GPSRobot:
         self.gps = self.robot.getDevice('gps')
         self.gps.enable(self.timestep)
 
+        self.compass = self.robot.getDevice('compass')
+        self.compass.enable(self.timestep)
+
         self.coordinates = []
         self.tracking = False
         self.tracking_initiated = False
         self.tracking_start_position = None
         self.prefix = False
         self.planned = False
+        self.initiate_movement = False
+        self.finished_program = False
 
     def run_loop(self):
         while self.robot.step(self.timestep) != -1:
@@ -102,6 +108,7 @@ class GPSRobot:
             # start initial plan
             elif (key == ord('M')):
                 if not self.planned:
+                    print('PLAN PATH')
                     self.planned = True
 
                     wavefront(self.grid, (x, y))
@@ -111,9 +118,52 @@ class GPSRobot:
 
                     self.create_total_path(nodes_to_visit)
                     print(self.total_path)
+            # initiate autonomous movement
+            elif (key == ord('I')):
+                if self.planned:
+                    print('MOVEMENT INITIATED')
+                    self.initiate_movement = True
+                else:
+                    print('PLAN PATH FIRST (PRESS M)')
             else:
                 self.move('stop')
                 self.turn('stop')
+
+            if self.initiate_movement and not self.finished_program:
+                cur_row, cur_col = coords_to_grid_indices(self.grid, (x, y))
+                cur_row = clamp(cur_row, 0, len(self.grid) - 1)
+                cur_col = clamp(cur_row, 0, len(self.grid[0]) - 1)
+                current_node = self.grid[cur_row][cur_col]
+                target_node = self.total_path[0]
+
+                # print(f'current x, y: {x, y} target x, y: {target_node.x, target_node.y} distance: {coord_distance((x, y), (target_node.x, target_node.y))}')
+
+                if coord_distance((x, y), (target_node.x, target_node.y)) < GRID_RESOLUTION:
+                    print(f'POPPED NODE TO VISIT, TARGETING NEW NODE: {target_node}')
+                    self.total_path.popleft()
+
+                    if len(self.total_path) == 0:
+                        print('REACHED ALL NODES!!! END PROGRAM')
+                        self.finished_program = True
+                else: # head towards target_node
+                    robot_to_target = np.array([target_node.y - y, target_node.x - x])
+                    robot_to_target_degrees = 360.0 - bearing_in_degrees(robot_to_target)
+                    compass_vec = self.compass.getValues()
+                    compass_vec = np.array([compass_vec[0], compass_vec[2]])
+                    orientation_degrees = bearing_in_degrees(compass_vec)
+
+                    v = rotate_vector_radians(robot_to_target, np.arctan2(compass_vec[1], compass_vec[0]))
+                    signed_angle = np.arctan2(v[1], v[0])
+
+                    # close enough, just go forward
+                    if abs(orientation_degrees - robot_to_target_degrees) < 5:
+                        self.move('forward')
+                    # adjust heading
+                    else:
+                        if signed_angle < 0:
+                            self.turn('left')
+                        else:
+                            self.turn('right')
 
     def move(self, direction):
         if direction == 'stop': inp = 0
@@ -145,7 +195,7 @@ class GPSRobot:
         start_node = self.grid[start_row][start_col]
         print(f'start_node: {start_node}')
 
-        self.total_path = []
+        self.total_path = deque()
 
         while len(nodes_to_visit) > 0:
             goal_node = nodes_to_visit.pop()
@@ -201,7 +251,7 @@ class GPSRobot:
                     children.append(child_node)
 
             # bottom
-            if col != len(grid) - 1:
+            if row != len(grid) - 1:
                 bottom_grid_node = grid[row + 1][col]
 
                 if bottom_grid_node.type is GridNodeType.EMPTY:
@@ -318,8 +368,8 @@ def find_extremes(coordinates):
     return (top_y, right_x, bottom_y, left_x)
 
 def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
-    num_rows = int(((right_x - left_x) // GRID_RESOLUTION) + 1)
-    num_cols = int(((top_y - bottom_y) // GRID_RESOLUTION) + 1)
+    num_rows = int(((top_y - bottom_y) // GRID_RESOLUTION) + 1)
+    num_cols = int(((right_x - left_x) // GRID_RESOLUTION) + 1)
 
     left_x = round(left_x, ROUND_PRECISION)
     top_y = round(top_y, ROUND_PRECISION)
@@ -340,7 +390,10 @@ def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
 def fill_grid_obstacle(obstacle_coordinates, grid):
     for (x, y) in obstacle_coordinates:
         row, col = coords_to_grid_indices(grid, (x, y))
+        print(f'grid rows, cols: {len(grid)}, {len(grid[0])} | obstacle row, col: {row}, {col}')
         grid[row][col].type = GridNodeType.OBSTACLE
+
+        print(f'obstacle x, y: {x}, {y} | node x, y: {grid[row][col].x}, {grid[row][col].y}')
 
 def wavefront(grid, robot_coords):
     row, col = coords_to_grid_indices(grid, robot_coords)
@@ -511,10 +564,31 @@ def coords_to_grid_indices(grid, coords):
     top_left_x = grid[0][0].x
     top_left_y = grid[0][0].y
 
-    row = int(round(abs(coords[0] - top_left_x), ROUND_PRECISION) / GRID_RESOLUTION)
-    col = int(round(abs(coords[1] - top_left_y), ROUND_PRECISION) / GRID_RESOLUTION)
+    print(f'top_left_x: {top_left_x} top_left_y: {top_left_y} x: {coords[0]} y: {coords[1]}')
+    row = int(abs(coords[1] - top_left_y) / GRID_RESOLUTION)
+    col = int(abs(coords[0] - top_left_x) / GRID_RESOLUTION)
 
     return (row, col)
+
+def bearing_in_degrees(compass_vec):
+    rad = np.arctan2(compass_vec[0], compass_vec[1])
+    bearing = (rad - 1.5708) / np.pi * 180.0
+
+    if bearing < 0.0:
+        bearing += 360.0
+
+    return bearing
+
+def clamp(n, minimum, maximum):
+    return max(minimum, min(n, maximum))
+
+def rotate_vector_radians(vector, theta):
+    rotation_matrix = np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta), np.cos(theta)]
+    ])
+
+    return np.dot(rotation_matrix, vector)
 
 def main():
     robot = GPSRobot()
