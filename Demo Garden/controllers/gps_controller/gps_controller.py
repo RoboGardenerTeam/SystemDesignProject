@@ -136,8 +136,6 @@ class GPSRobot:
                 current_node = self.grid[cur_row][cur_col]
                 target_node = self.total_path[0]
 
-                # print(f'current x, y: {x, y} target x, y: {target_node.x, target_node.y} distance: {coord_distance((x, y), (target_node.x, target_node.y))}')
-
                 if coord_distance((x, y), (target_node.x, target_node.y)) < GRID_RESOLUTION:
                     print(f'POPPED NODE TO VISIT, TARGETING NEW NODE: {target_node}')
                     self.total_path.popleft()
@@ -193,14 +191,12 @@ class GPSRobot:
         y, _, x = self.gps.getValues()
         start_row, start_col = coords_to_grid_indices(self.grid, (x, y))
         start_node = self.grid[start_row][start_col]
-        print(f'start_node: {start_node}')
 
         self.total_path = deque()
 
         while len(nodes_to_visit) > 0:
             goal_node = nodes_to_visit.pop()
             path = self.path_to_node(start_node, goal_node)
-            print(path)
             self.total_path += path
             start_node = self.total_path[-1]
 
@@ -281,26 +277,20 @@ class GPSRobot:
 
             return None
 
-        print(f'start: {start_node} -> goal: {goal_node}')
         g_cost = 0
         h_cost = calculate_heuristic(start_node, goal_node)
         frontier = [(g_cost + h_cost, AStarNode(start_node, None, g_cost, h_cost))]
         explored = set()
 
         while frontier:
-            print(f'frontier size: {len(frontier)}')
-            print(f'frontier: {frontier}')
             astar_node = heappop(frontier)[1]
-            print(f'popped node: {astar_node.grid_node}')
 
             # return path
             if astar_node.grid_node == goal_node:
-                print('hit goal node')
                 path = [astar_node.grid_node]
                 current_astar_node = astar_node.parent_astar_node
 
                 while current_astar_node is not None:
-                    print(f'parent: {current_astar_node}')
                     path.append(current_astar_node.grid_node)
                     current_astar_node = current_astar_node.parent_astar_node
 
@@ -310,23 +300,16 @@ class GPSRobot:
             explored.add(astar_node.grid_node)
 
             for astar_child in astar_node_children(self.grid, astar_node, goal_node):
-                print(f'child: {astar_child.grid_node}')
                 cost_and_frontier_astar_node_tuple = frontier_contains(frontier, astar_child)
                 astar_child_g_and_h_cost = astar_child.g_cost + astar_child.h_cost
 
-                print(f'cost_and_frontier_astar_node_tuple: {cost_and_frontier_astar_node_tuple}')
-
                 if astar_child.grid_node not in explored and cost_and_frontier_astar_node_tuple is None:
-                    print('HERE')
                     heappush(frontier, (astar_child_g_and_h_cost, astar_child))
                 elif cost_and_frontier_astar_node_tuple is not None:
-                    print('HI')
                     if astar_child_g_and_h_cost < cost_and_frontier_astar_node_tuple[0]:
                         del frontier[[astar_child.grid_node == frontier_astar_node.grid_node for _, frontier_astar_node in frontier].index(True)]
                         heapify(frontier)
                         heappush(frontier, (astar_child_g_and_h_cost, astar_child))
-
-            print('looping back')
 
 def coord_distance(a, b):
     x_delta = a[0] - b[0]
@@ -390,10 +373,7 @@ def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
 def fill_grid_obstacle(obstacle_coordinates, grid):
     for (x, y) in obstacle_coordinates:
         row, col = coords_to_grid_indices(grid, (x, y))
-        print(f'grid rows, cols: {len(grid)}, {len(grid[0])} | obstacle row, col: {row}, {col}')
         grid[row][col].type = GridNodeType.OBSTACLE
-
-        print(f'obstacle x, y: {x}, {y} | node x, y: {grid[row][col].x}, {grid[row][col].y}')
 
 def wavefront(grid, robot_coords):
     row, col = coords_to_grid_indices(grid, robot_coords)
@@ -564,7 +544,6 @@ def coords_to_grid_indices(grid, coords):
     top_left_x = grid[0][0].x
     top_left_y = grid[0][0].y
 
-    print(f'top_left_x: {top_left_x} top_left_y: {top_left_y} x: {coords[0]} y: {coords[1]}')
     row = int(abs(coords[1] - top_left_y) / GRID_RESOLUTION)
     col = int(abs(coords[0] - top_left_x) / GRID_RESOLUTION)
 
