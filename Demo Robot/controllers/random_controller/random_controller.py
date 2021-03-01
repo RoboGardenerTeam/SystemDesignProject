@@ -108,13 +108,12 @@ def automatic_navigation():
     if reorienting:
         compass_vec = compass.getValues()
         compass_vec = np.array([compass_vec[0], compass_vec[2]])
-        orientation_degrees = 360 - bearing_in_degrees(compass_vec)
 
-        new_orientation_vector = rotate_vector_radians(np.array([1, 0]), (np.pi / 180) * new_orientation)
+        new_orientation_vector = np.array([np.cos(np.deg2rad(new_orientation)), np.sin(np.deg2rad(new_orientation))])
         v = rotate_vector_radians(new_orientation_vector, -1 * np.arctan2(compass_vec[1], compass_vec[0]))
         signed_angle = np.arctan2(v[1], v[0])
 
-        if signed_angle < 0.087: # 5 degrees
+        if abs(signed_angle) < 0.087: # 5 degrees
             reorienting = False
         elif signed_angle > 0:
             turn('left')

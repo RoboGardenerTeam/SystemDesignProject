@@ -94,7 +94,7 @@ class GPSRobot:
         self.csv_counter %= 10
 
         if self.csv_counter == 0:
-            self.csv_writer.writerow([f'{perf_counter()}', f'{progress_percentage}', f'{revisit_percentage}'])
+            self.csv_writer.writerow([f'{perf_counter() - self.start}', f'{progress_percentage}', f'{revisit_percentage}'])
 
     def run_loop(self):
         while self.robot.step(self.timestep) != -1:
