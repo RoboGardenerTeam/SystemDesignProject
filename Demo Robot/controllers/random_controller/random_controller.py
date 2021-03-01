@@ -174,7 +174,7 @@ csv_counter = 0 # counter to stop saving to csv file so often
 def print_and_save_stats(csv_writer):
     progress_percentage = num_visited / num_nodes * 100
     revisit_percentage = revisiting_counter / total_counter * 100
-    print(f'Progress percentage: {progress_percentage}')
+    print(f'Progress percentage: {progress_percentage} ({num_visited}/{num_nodes})')
     print(f'Revisiting percentage: {revisit_percentage}')
 
     global csv_counter
@@ -184,7 +184,7 @@ def print_and_save_stats(csv_writer):
     if csv_counter == 0:
         csv_writer.writerow([f'{perf_counter()}', f'{progress_percentage}', f'{revisit_percentage}'])
 
-with open('test.csv', 'w', newline='\n') as csvfile:
+with open('random_stats.csv', 'w', newline='\n') as csvfile:
     csv_writer = csv.writer(csvfile, delimiter=',', quotechar='\"', quoting=csv.QUOTE_MINIMAL)
     csv_writer.writerow(['Time', 'Progress %', 'Revisit %'])
 
@@ -204,11 +204,11 @@ with open('test.csv', 'w', newline='\n') as csvfile:
         # very crusty lambdas, this just counts how many nodes in the grid are marked as visited
         num_visited = reduce(lambda acc, count: acc + count, map(lambda row: reduce(lambda acc, node: acc + 1 if node.visited else acc, row, 0), grid))
 
+        automatic_navigation()
+        print_and_save_stats(csv_writer)
+
         # visited x% of nodes, visiting last (100 - x)% takes super long for random robot
-        if num_visited/num_nodes > 0.98:
+        if num_visited/num_nodes >= 0.98:
             end = perf_counter()
             print(f'Total execution time: {end - start}')
             sys.exit(0)
-
-        automatic_navigation()
-        print_and_save_stats(csv_writer)
