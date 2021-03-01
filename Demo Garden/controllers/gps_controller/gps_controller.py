@@ -325,7 +325,7 @@ def coord_distance(a, b):
 
 def build_garden_grid(coordinates):
     top_y, right_x, bottom_y, left_x = find_extremes(coordinates)
-    grid = build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x)
+    grid = build_empty_grid(top_y, right_x, bottom_y, left_x)
     fill_grid_obstacle(coordinates, grid)
 
     return grid
@@ -356,7 +356,7 @@ def find_extremes(coordinates):
 
     return (top_y, right_x, bottom_y, left_x)
 
-def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
+def build_empty_grid(top_y, right_x, bottom_y, left_x):
     num_rows = int(((top_y - bottom_y) / GRID_RESOLUTION) + 1)
     num_cols = int(((right_x - left_x) / GRID_RESOLUTION) + 1)
 
