@@ -6,7 +6,10 @@ from math import sqrt
 from collections import deque
 from heapq import *
 from time import perf_counter
+from functools import reduce
 import numpy as np
+import csv
+import sys
 
 MAX_SPEED = 5
 GRID_RESOLUTION = 0.15 # in meters
@@ -68,6 +71,31 @@ class GPSRobot:
         self.initiate_movement = False
         self.finished_program = False
 
+        self.visited_targets = set()
+        self.visited_real = set()
+        self.num_nodes = 0
+        self.revisiting_counter = 0
+        self.total_counter = 0
+        self.prev_node = None
+        self.csvfile = open('gps_stats.csv', 'w', newline='\n')
+        self.csv_counter = 0 # counter to stop saving to csv file so often
+        self.csv_writer = csv.writer(self.csvfile, delimiter=',', quotechar='\"', quoting=csv.QUOTE_MINIMAL)
+        self.csv_writer.writerow(['Time', 'Progress %', 'Revisit %'])
+
+    def print_and_save_stats(self):
+        num_visited = len(self.visited_targets)
+        progress_percentage = num_visited / self.num_nodes * 100
+        revisit_percentage = self.revisiting_counter / self.total_counter * 100
+
+        print(f'Progress percentage: {progress_percentage} ({num_visited}/{self.num_nodes})')
+        print(f'Revisiting percentage: {revisit_percentage}')
+
+        self.csv_counter += 1
+        self.csv_counter %= 10
+
+        if self.csv_counter == 0:
+            self.csv_writer.writerow([f'{perf_counter()}', f'{progress_percentage}', f'{revisit_percentage}'])
+
     def run_loop(self):
         while self.robot.step(self.timestep) != -1:
             y, _, x = self.gps.getValues()
@@ -121,6 +149,11 @@ class GPSRobot:
                     print('-----   NODES TO VISIT IN ORDER   -----')
                     print_grid(self.grid)
 
+                    self.num_nodes = -1
+                    for node in nodes_to_visit:
+                        if (node.step + 1) > self.num_nodes:
+                            self.num_nodes = node.step + 1
+
                     self.create_total_path(nodes_to_visit)
                     print('-----   COMPLETE PATH TO COVER ALL NODES TO BE VISITED   -----')
                     print(self.total_path)
@@ -137,12 +170,22 @@ class GPSRobot:
                 self.turn('stop')
 
             if self.initiate_movement and not self.finished_program:
+                self.total_counter += 1
+                self.print_and_save_stats()
+
+                target_node = self.total_path[0]
+                self.visited_targets.add(target_node)
+
                 cur_row, cur_col = coords_to_grid_indices(self.grid, (x, y))
                 cur_row = clamp(cur_row, 0, len(self.grid) - 1)
-                cur_col = clamp(cur_row, 0, len(self.grid[0]) - 1)
-
+                cur_col = clamp(cur_col, 0, len(self.grid[0]) - 1)
                 current_node = self.grid[cur_row][cur_col]
-                target_node = self.total_path[0]
+
+                if current_node in self.visited_real and current_node != self.prev_node:
+                    self.revisiting_counter += 1
+                else:
+                    self.visited_real.add(current_node)
+                    self.prev_node = current_node
 
                 if coord_distance((x, y), (target_node.x, target_node.y)) < GRID_RESOLUTION:
                     print(f'POPPED NODE TO VISIT, TARGETING NEW NODE: {target_node}')
@@ -151,8 +194,10 @@ class GPSRobot:
                     if len(self.total_path) == 0:
                         print('REACHED ALL NODES!!! END PROGRAM')
                         self.end = perf_counter()
-                        print(f'Execution time: {self.end - self.start}')
+                        print(f'Total execution time: {self.end - self.start}')
                         self.finished_program = True
+                        self.csvfile.close()
+                        sys.exit(0)
                 else: # head towards target_node
                     robot_to_target = np.array([target_node.y - y, target_node.x - x])
                     robot_to_target_degrees = 360.0 - bearing_in_degrees(robot_to_target)
@@ -329,7 +374,7 @@ def coord_distance(a, b):
 
 def build_garden_grid(coordinates):
     top_y, right_x, bottom_y, left_x = find_extremes(coordinates)
-    grid = build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x)
+    grid = build_empty_grid(top_y, right_x, bottom_y, left_x)
     fill_grid_obstacle(coordinates, grid)
 
     return grid
@@ -360,7 +405,7 @@ def find_extremes(coordinates):
 
     return (top_y, right_x, bottom_y, left_x)
 
-def build_empty_grid(coordinates, top_y, right_x, bottom_y, left_x):
+def build_empty_grid(top_y, right_x, bottom_y, left_x):
     num_rows = int(((top_y - bottom_y) / GRID_RESOLUTION) + 1)
     num_cols = int(((right_x - left_x) / GRID_RESOLUTION) + 1)
 
