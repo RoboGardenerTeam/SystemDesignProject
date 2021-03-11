@@ -21,4 +21,5 @@ To use the controller:
   - make sure the robot controller in Webots is set to \<extern\>
   - save and reload the world, make sure it is not paused
   - in a terminal, go to the SystemDesignProject/rest_controller directory, and call `python3 rest_interface.py`
-  - using [Postman](https://www.postman.com/downloads/) or web browser, call http://127.0.0.1:5000/control/run then to stop, call http://127.0.0.1:5000/control/stop
+  - using [Postman](https://www.postman.com/downloads/) or web browser, call http://127.0.0.1:5000/start then to stop, call http://127.0.0.1:5000/pause
+    -  We also now have dummy functions /stop (return to base), /battery, /baseFill, /status
