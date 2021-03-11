@@ -4,6 +4,7 @@ from controller import Robot
 from time import perf_counter
 from functools import reduce
 from random import randrange
+import random
 import numpy as np
 import csv
 import sys
@@ -54,6 +55,7 @@ camera = robot.getDevice('front_camera')
 
 # activate camera
 camera.enable(timestep)
+camera.recognitionEnable(timestep)
 
 # define movement in specific direction
 def move(direction):
@@ -97,6 +99,61 @@ def rotate_vector_radians(vector, theta):
 
     return np.dot(rotation_matrix, vector)
 
+
+# change direction when the robot find a pine cone
+def toward_pinecone(objects):
+    
+    global found
+    global id
+    # print(found)
+    # move('forward')
+    
+    # if the robot found the pine cone 
+    if found:
+        # print(id)
+        pinecone = None
+        # find the exact pine cone we found before because the robot can be
+        # stranded if there are more than 2 pine cones, so the robot will go
+        # to the pine cone what it found first
+        for i in objects:
+            if i.get_id() == id:
+                pinecone = i
+        # if the pine cone is not in camera sight
+        if pinecone is None:
+            found = False
+            return
+        # get the position of the pine cone    
+        position = pinecone.get_position()
+        # print(position)
+        x = float(position[0])
+        z = float(position[2])
+        
+        # adjust the robot's path
+        if (x > 0.1):
+            turn('right')
+        elif (x < -0.1):
+            turn('left')
+        else:
+            # if the robot is close enough to the pine cone, try to find another
+            if z > -2:
+                turn('right')
+                found = False
+            # if z < -3:
+                # move('forward')
+            # else:
+                # found = False
+                
+    # check if pine cones are in detected objects 
+    else:
+        for i in objects:
+            model = str(i.get_model())
+            if model == "b'pine cone'":
+                # save the id of the first pine cone
+                id = i.get_id()
+                found = True
+                break
+                
+    
 # automatical navigation by sensors
 def automatic_navigation():
     global reorienting
@@ -124,6 +181,7 @@ def automatic_navigation():
         reorienting = True
     else:
         move('forward')
+        toward_pinecone(camera.getRecognitionObjects())
 
 def build_empty_grid(top_y, right_x, bottom_y, left_x):
     num_rows = int(((top_y - bottom_y) / GRID_RESOLUTION) + 1)
@@ -164,6 +222,9 @@ compass.enable(timestep)
 reorienting = False
 new_orientation = 0
 
+found = False
+id = None
+
 revisiting_counter = 0
 total_counter = 0
 prev = None
@@ -202,8 +263,9 @@ with open('random_stats.csv', 'w', newline='\n') as csvfile:
 
         # very crusty lambdas, this just counts how many nodes in the grid are marked as visited
         # num_visited = reduce(lambda acc, count: acc + count, map(lambda row: reduce(lambda acc, node: acc + 1 if node.visited else acc, row, 0), grid))
-
+        
         automatic_navigation()
+        # toward_pinecone(camera.getRecognitionObjects())
         # print_and_save_stats(csv_writer)
 
         # visited x% of nodes, visiting last (100 - x)% takes super long for random robot
