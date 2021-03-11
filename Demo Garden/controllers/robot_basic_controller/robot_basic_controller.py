@@ -14,7 +14,8 @@ MAX_SPEED = 10
 
 # set up wheels motor on the robot
 wheels = []
-wheelsNames = ['left_front_wheel', 'right_front_wheel', 'left_rear_wheel', 'right_rear_wheel', 'left_mid_wheel', 'right_mid_wheel']
+wheelsNames = ['left_front_wheel', 'right_front_wheel', 'left_rear_wheel', 
+               'right_rear_wheel', 'left_mid_wheel', 'right_mid_wheel']
 for i in range(6):
     wheels.append(robot.getDevice(wheelsNames[i]))
     wheels[i].setPosition(float('inf'))
@@ -47,7 +48,7 @@ camera.recognitionEnable(timestep)
 robot.batterySensorEnable(timestep)
 
 # define movement in specific direction
-def move(direction, battery_value):
+def move(direction, control=1.0):
 
     if direction == 'stop': inp = 0 
     if direction == 'forward': inp = 1 
@@ -57,15 +58,11 @@ def move(direction, battery_value):
     wheels[1].setVelocity(inp * MAX_SPEED)
     wheels[2].setVelocity(inp * MAX_SPEED)
     wheels[3].setVelocity(inp * MAX_SPEED)
-    if battery_value <= 400000:
-       wheels[4].setVelocity(inp * MAX_SPEED * 0.35) 
-       wheels[5].setVelocity(inp * MAX_SPEED * 0.35)
-    else:
-       wheels[4].setVelocity(inp * MAX_SPEED) 
-       wheels[5].setVelocity(inp * MAX_SPEED)
+    wheels[4].setVelocity(inp * MAX_SPEED * control) 
+    wheels[5].setVelocity(inp * MAX_SPEED * control)
 
 # define turning in specific direction
-def turn(direction, battery_value):
+def turn(direction, control=1.0):
 
     if direction == 'stop': inp = 0 
     if direction == 'right': inp = 1 
@@ -75,30 +72,34 @@ def turn(direction, battery_value):
     wheels[1].setVelocity(-inp * MAX_SPEED)
     wheels[2].setVelocity(inp * MAX_SPEED)
     wheels[3].setVelocity(-inp * MAX_SPEED)
-    if battery_value <= 400000:
-       wheels[4].setVelocity(inp * MAX_SPEED * 0.0) 
-       wheels[5].setVelocity(-inp * MAX_SPEED * 0.0)
-    else:
-       wheels[4].setVelocity(inp * MAX_SPEED) 
-       wheels[5].setVelocity(-inp * MAX_SPEED)
+    wheels[4].setVelocity(inp * MAX_SPEED * control) 
+    wheels[5].setVelocity(-inp * MAX_SPEED * control)
     
 # automatical navigation by sensors
-def automatic_navigation(battery_value):
+def automatic_navigation(control=1.0):
 
-    left_sensors_value = np.array([sensor.getValue() for sensor in [sensorL1, sensorL2, sensorL3]])
-    right_sensors_value = np.array([sensor.getValue() for sensor in [sensorR1, sensorR2, sensorR3]])
+    left_sensors_value = np.array([s.getValue() for s in [sensorL1, sensorL2, sensorL3]])
+    right_sensors_value = np.array([s.getValue() for s in [sensorR1, sensorR2, sensorR3]])
     
     if (np.any(left_sensors_value < 1000)):
-        turn('right', battery_value)
+        turn('right', control)
     elif (np.any(right_sensors_value < 1000)):
-        turn('left', battery_value)
+        turn('left', control)
     else:
-        move('forward', battery_value)
+        move('forward')
+
+# define random navigation algorithm        
+def random_navigation_algorithm(battery_value):
+
+    if battery_value >= 450000:
+        automatic_navigation()
+    else:
+        automatic_navigation(0.35)
 
 # main loop - in each time step, do following
 while robot.step(timestep) != -1:
 
     battery_value = robot.batterySensorGetValue()
-    automatic_navigation(battery_value)
-    
+    random_navigation_algorithm(battery_value)
+
     pass
