@@ -89,7 +89,7 @@ def automatic_navigation(control=1.0):
         move('forward')
 
 # define random navigation algorithm        
-def random_navigation_algorithm(battery_value):
+def random_navigation_algorithm():
   
     battery_value = robot.batterySensorGetValue()
     if battery_value >= 450000:
@@ -100,6 +100,6 @@ def random_navigation_algorithm(battery_value):
 # main loop - in each time step, do following
 while robot.step(timestep) != -1:
   
-    random_navigation_algorithm(battery_value)
+    random_navigation_algorithm()
 
     pass
