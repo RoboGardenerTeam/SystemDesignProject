@@ -1,9 +1,8 @@
 import numpy as np
 from robot_driver import Driver
 from random_controller import RandomController
-from flask import Flask, json, jsonify
+from flask import Flask, jsonify
 from threading import Thread
-import enum
 
 app = Flask(__name__)
 driver = Driver()
@@ -14,8 +13,6 @@ def run_auto_control():
     global control
     # instantiate the random controller class
     control = RandomController(driver)
-    # set status
-    status = "running"
     # start the control algorithm in a new thread
     Thread(target=control.run()).start()
     return jsonify({'message' : "Started Controller"})
@@ -24,8 +21,6 @@ def run_auto_control():
 def pause_control():
     # send signal to controller to terminate
     control.terminate()
-    # set status
-    status = "paused"
     return jsonify({'message' : "Stopped Controller"})
 
 @app.route('/stop')
