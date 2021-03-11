@@ -2,9 +2,14 @@ import numpy as np
 from robot_driver import Driver
 from random_controller import RandomController
 from flask import Flask, jsonify
+from flask_ngrok import run_with_ngrok
 from threading import Thread
+import sys
 
 app = Flask(__name__)
+if len(sys.argv) > 0:
+    if sys.argv.__contains__("--ngrok"):
+        run_with_ngrok(app)
 driver = Driver()
 control = None
 
