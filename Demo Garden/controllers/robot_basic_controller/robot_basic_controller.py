@@ -1,6 +1,7 @@
 """robot_controller controller."""
 
 from controller import Robot
+from random import randrange
 import numpy as np
 
 # set up robot
