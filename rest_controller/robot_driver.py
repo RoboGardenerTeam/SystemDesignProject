@@ -65,3 +65,6 @@ class Driver(Robot):
     def step_one(self):
         return self.step(self.timestep)
 
+    def get_battery(self):
+        return (4956/13000)
+
