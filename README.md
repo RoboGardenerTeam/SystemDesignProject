@@ -24,3 +24,7 @@ To use the controller:
   - using [Postman](https://www.postman.com/downloads/) or web browser, call http://127.0.0.1:5000/start then to stop, call http://127.0.0.1:5000/pause
     -  We also now have dummy functions /stop (return to base), /battery, /baseFill, /status
 
+## YOLOv5 labeled dataset and weights
+- https://github.com/Minsung-kk/yolov5-noise
+- [Chinese researchers' paper](https://www.mdpi.com/1424-8220/20/16/4430/htm)
+
