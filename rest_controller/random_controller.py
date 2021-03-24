@@ -1,19 +1,30 @@
 import numpy as np
 from robot_driver import Driver
+from threading import Lock, Thread
 
 class RandomController():
     def __init__(self, driver):
         self.driver = driver
         self._running = True
+        self.lock = Lock()
+        self.cntrl_thread = None
+
+    def start(self):
+        self.cntrl_thread = Thread(target=self.run_loop)
+        self.cntrl_thread.start()
         
-    # star a while loop that calls the random navigation
-    def run(self):
+    # start a while loop that calls the random navigation
+    def run_loop(self):
         while self._running and self.driver.step_one() > -1:
+            self.lock.acquire()
             self.random_navigation()
+            self.lock.release()
     
     # set the stopping condition of the control loop
     def terminate(self):
+        self.lock.acquire()
         self._running = False
+        self.lock.release()
 
     # random navigation algorithm
     def random_navigation(self):
