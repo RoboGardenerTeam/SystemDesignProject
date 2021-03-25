@@ -1,11 +1,14 @@
 """robot_cbasic_controller_z"""
 
-from controller import Robot
+from controller import Robot, Supervisor
 import numpy as np
 import math
+import random
+from random import randrange
 
 # set up robot
-robot = Robot()
+# robot = Robot()
+robot = Supervisor()
 
 # get time steps
 timestep = int(robot.getBasicTimeStep())
@@ -82,25 +85,146 @@ def turn(direction, control=1.0):
     wheels[3].setVelocity(-inp * MAX_SPEED)
     wheels[4].setVelocity(inp * MAX_SPEED * control) 
     wheels[5].setVelocity(-inp * MAX_SPEED * control)
+
+reorienting = False
+new_orientation = 0
+found = False
+id = None 
+# change direction when the robot find a pine cone
+def toward_pinecone(objects):
+    
+    global found
+    global id
+    # print(found)
+    # move('forward')
+    
+    # if the robot found the pine cone 
+    if found:
+        # print(id)
+        p = robot.getFromId(id)
+        pinecone = None
+        # find the exact pine cone we found before because the robot can be
+        # stranded if there are more than 2 pine cones, so the robot will go
+        # to the pine cone what it found first
+        for i in objects:
+            if i.get_id() == id:
+                pinecone = i
+        # if the pine cone is not in camera sight
+        if pinecone is None:
+            found = False
+            id = None
+            return
+        # get the position of the pine cone    
+        position = pinecone.get_position()
+        print(position)
+        x = float(position[0])
+        z = float(position[2])
+        
+        # adjust the robot's path
+        if (x > 0.1):
+            turn('right')
+        elif (x < -0.1):
+            turn('left')
+        else:
+            # if the robot is close enough to the pine cone, try to find another
+            if z > -1:
+                # turn('right')
+                model = str(pinecone.get_model())
+                # print(model)
+                if model == "b'pine cone'":
+                    p.remove()
+                found = False
+                id = None   
+            # if z < -3:
+                # move('forward')
+            else:
+                found = False
+                
+    # check if pine cones are in detected objects 
+    else:
+        temp_dist = -1000
+        for i in objects:
+            model = str(i.get_model())
+            dist = i.get_position()[2]
+            precision = random.random()
+            if i.get_position()[2] < -3:
+                precision = precision * 0.3
+            # print(dist)
+            # 90 percent object detection accuracy
+            # go to the nearlest pine cone
+            if (model == "b'pine cone'") and (dist > temp_dist):
+                if precision > 0.1:
+                    # save the id of the first pine cone which the robot found
+                    id = i.get_id()
+                    temp_dist = dist
+                    found = True                    
+            else:
+                # 1 percent chance of misdetection
+                if (precision < 0.5):
+                    id = i.get_id()
+                    temp_dist = dist
+                    found = True
+                # miss the object    
+                else:
+                    found = False
+                    id = None  
+
+def rotate_vector_radians(vector, theta):
+    rotation_matrix = np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta), np.cos(theta)]
+    ])
+
+    return np.dot(rotation_matrix, vector)
+
+                
     
 # automatical navigation by sensors
-def automatic_navigation(control=1.0):
-    left_sensors_value = np.array([s.getValue() for s in [sensorL1, sensorL2, sensorL3]])
-    right_sensors_value = np.array([s.getValue() for s in [sensorR1, sensorR2, sensorR3]])
-    if (np.any(left_sensors_value < 1000)):
-        turn('right', control)
-    elif (np.any(right_sensors_value < 1000)):
-        turn('left', control)
+def automatic_navigation():
+    global reorienting
+    global new_orientation
+
+    left_sensors_value = np.array([sensor.getValue() for sensor in [sensorL1, sensorL2, sensorL3]])
+    right_sensors_value = np.array([sensor.getValue() for sensor in [sensorR1, sensorR2, sensorR3]])
+
+    if reorienting:
+        compass_vec = compass.getValues()
+        compass_vec = np.array([compass_vec[0], compass_vec[2]])
+
+        new_orientation_vector = np.array([np.cos(np.deg2rad(new_orientation)), np.sin(np.deg2rad(new_orientation))])
+        v = rotate_vector_radians(new_orientation_vector, -1 * np.arctan2(compass_vec[1], compass_vec[0]))
+        signed_angle = np.arctan2(v[1], v[0])
+
+        if abs(signed_angle) < 0.087: # 5 degrees
+            reorienting = False
+        elif signed_angle > 0:
+            turn('left')
+        else:
+            turn('right')
+    elif (np.any(left_sensors_value < 1000)) or (np.any(right_sensors_value < 1000)):
+        new_orientation = randrange(0, 360)
+        reorienting = True
     else:
         move('forward')
+        toward_pinecone(camera.getRecognitionObjects())
+# automatical navigation by sensors
+# def automatic_navigation(control=1.0):
+    # left_sensors_value = np.array([s.getValue() for s in [sensorL1, sensorL2, sensorL3]])
+    # right_sensors_value = np.array([s.getValue() for s in [sensorR1, sensorR2, sensorR3]])
+    # if (np.any(left_sensors_value < 1000)):
+        # turn('right', control)
+    # elif (np.any(right_sensors_value < 1000)):
+        # turn('left', control)
+    # else:
+        # move('forward')
         
 # define random navigation algorithm        
-def random_navigation_algorithm():
-    battery_value = robot.batterySensorGetValue()
-    if battery_value >= 300000:
-        automatic_navigation()
-    else:
-        automatic_navigation(0)
+# def random_navigation_algorithm():
+    # battery_value = robot.batterySensorGetValue()
+    # if battery_value >= 300000:
+        # automatic_navigation()
+    # else:
+        # automatic_navigation(0)
 
 # define turning towards base station   
 def turn_towards_base_station():
@@ -182,10 +306,15 @@ def back_to_base_station_demo(time_count):
     else:
         leave_base_station(time_count)
        
+# p = robot.getFromId(724)
+# print(p)
+# p.remove()
 # main loop - in each time step, do following
 while robot.step(timestep) != -1:
+ 
 
-    TIME_COUNT = TIME_COUNT + 1
-    back_to_base_station_demo(TIME_COUNT)
-    
+    automatic_navigation()
+    # TIME_COUNT = TIME_COUNT + 1
+    # back_to_base_station_demo(TIME_COUNT)
+    print(id)
     pass
