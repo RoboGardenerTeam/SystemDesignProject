@@ -21,7 +21,7 @@ class RandomController():
     
     # terminate the controller
     def terminate(self):
-        self._RUNNING = True
+        self._RUNNING = False
         self.TIME_COUNT = 0
         self.DUMP_TIME = 0
         self.STOP_FRONT_BAR = False
