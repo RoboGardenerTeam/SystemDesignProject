@@ -1,8 +1,8 @@
 import numpy as np
 import logging
+import random
 from robot_driver import Driver
 from threading import Lock, Thread
-from random import randrange
 from enum import Enum
 
 logging.basicConfig(filename='example.log', level=logging.DEBUG)
@@ -28,7 +28,10 @@ class MoveOffBaseState:
 
 class NavigationState:
     def __init__(self):
-        pass
+        self.found = False
+        self.id = None
+        self.reorienting = False
+        self.new_orientation = 0
 
 class ReturnToBaseState:
     def __init__(self):
@@ -183,22 +186,119 @@ class RandomController:
         right_sensors_value = np.array([
             sensor.getValue() for sensor in
             [self.driver.sensors[3], self.driver.sensors[4], self.driver.sensors[5]]])
-        if (np.any(left_sensors_value < 1000)):
-            self.driver.turn('right')
-        elif (np.any(right_sensors_value < 1000)):
-            self.driver.turn('left')
-        else:
-            self.driver.move('forward')
 
-        # if close to an object on the left, turn right
-        if (np.any(left_sensors_value < 1000)):
-            self.driver.turn('right')
-        # if close to an object on the right, turn left
-        elif (np.any(right_sensors_value < 1000)):
-            self.driver.turn('left')
-        # else drive forward
+        if self.state_data.reorienting:
+            compass_vec = self.driver.compass.getValues()
+            compass_vec = np.array([compass_vec[0], compass_vec[2]])
+
+            new_orientation_vector = np.array([np.cos(np.deg2rad(self.state_data.new_orientation)), np.sin(np.deg2rad(self.state_data.new_orientation))])
+            v = rotate_vector_radians(new_orientation_vector, -1 * np.arctan2(compass_vec[1], compass_vec[0]))
+            signed_angle = np.arctan2(v[1], v[0])
+
+            if abs(signed_angle) < 0.087: # 5 degrees
+                self.state_data.reorienting = False
+            elif signed_angle > 0:
+                self.driver.turn('left')
+            else:
+                self.driver.turn('right')
+        elif (np.any(left_sensors_value < 1000)) or (np.any(right_sensors_value < 1000)):
+            self.state_data.new_orientation = random.randrange(0, 360)
+            self.state_data.reorienting = True
         else:
             self.driver.move('forward')
+            self.turn_towards_pinecone()
+
+    def turn_towards_pinecone(self):
+        objects = self.driver.camera.getRecognitionObjects()
+
+        # if the robot found a object
+        if self.state_data.found:
+            # it indicates the node of the object
+            # have to do this because there is no option to delete the node using ID
+            p = self.driver.getFromId(self.state_data.id)
+            # object
+            pinecone = None
+            # find the exact pine cone we found before because the robot can be
+            # stranded if there are more than 2 pine cones
+            # the robot is going to the pine cone what it found first
+            for i in objects:
+                if i.get_id() == self.state_data.id:
+                    pinecone = i
+            # if the pine cone is not in camera sight, clear flags
+            # and go back to the search state
+            if pinecone is None:
+                self.state_data.found = False
+                self.state_data.id = None
+                return
+            # get the position of the pine cone
+            position = pinecone.get_position()
+            # print(position)
+            x = float(position[0])
+            z = float(position[2])
+
+            # adjust the robot's path on x axis, so make the object in center
+            if (x > 0.1):
+                self.driver.turn('right')
+            elif (x < -0.1):
+                self.driver.turn('left')
+            else:
+                # if the robot is close enough to the pine cone, remove the pine cone
+                # and go back to the search state
+                if z > -1:
+                    model = str(pinecone.get_model())
+                    print(model)
+                    # idk why the simulator puts b in front of the model name
+                    # the model names in the node and here should be same
+                    if model == "b'pine cone'":
+                        # remove the node we stored above
+                        p.remove()
+                    # clear the flags
+                    self.state_data.found = False
+                    self.state_data.id = None
+
+        # check if pine cones are in detected objects
+        else:
+            # initial distance
+            temp_dist = -1000
+            # check every object on camera
+            for i in objects:
+                # get the model name of the object
+                model = str(i.get_model())
+                # get the z axis distance
+                dist = i.get_position()[2]
+                # initial precision
+                precision = 1
+                # distance between the robot and the pine cone is
+                # less than 3m
+                if i.get_position()[2] < -3:
+                    precision = 0
+                # between 1m to 3m
+                elif i.get_position()[2] > -1 and i.get_position()[2] < -3:
+                    precision = 0.5
+                # less than 1m
+                elif i.get_position()[2] > -1:
+                    precision = 0.8
+
+                # set a random number
+                rn = random.random()
+                # find the nearest pine cone
+                if (model == "b'pine cone'") and (dist > temp_dist):
+                    # if precision is larger than rd, True Positive case
+                    if rn < precision:
+                        self.state_data.id = i.get_id()
+                        temp_dist = dist
+                        self.state_data.found = True
+                else:
+                    # misdetection. False Positive
+                    # the robot will be heading to this object
+                    if (rn > precision):
+                        self.state_data.id = i.get_id()
+                        temp_dist = dist
+                        self.state_data.found = True
+                    # miss the object. True Negative
+                    else:
+                        self.state_data.found = False
+                        self.state_data.id = None
 
     def dump(self):
         if self.state_data.time_counter <= 150:
@@ -244,3 +344,11 @@ class RandomController:
                     self.dump()
 
         print('END LOOP')
+
+def rotate_vector_radians(vector, theta):
+    rotation_matrix = np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta), np.cos(theta)]
+    ])
+
+    return np.dot(rotation_matrix, vector)

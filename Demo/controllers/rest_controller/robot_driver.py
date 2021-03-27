@@ -1,10 +1,9 @@
-from controller import Robot
+from controller import Supervisor
 from random import randrange
 
-class Driver(Robot):
+class Driver(Supervisor):
     def __init__(self):
-
-        Robot.__init__(self)
+        Supervisor.__init__(self)
 
         # setup variables used
         self.TIME_STEP = int(self.getBasicTimeStep())
@@ -38,6 +37,9 @@ class Driver(Robot):
         # set up dump truck motors
         self.front_motor = self.getDevice('front_basket_motor')
         self.bottom_motor = self.getDevice('lift_bottom_motor')
+
+        self.compass = self.getDevice('compass')
+        self.compass.enable(self.TIME_STEP)
 
     # define movement in specific direction
     def move(self, direction):
