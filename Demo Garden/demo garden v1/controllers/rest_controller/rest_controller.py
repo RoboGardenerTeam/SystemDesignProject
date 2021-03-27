@@ -44,9 +44,8 @@ def get_status():
     return jsonify({'status' : 'implement status getter'})
 
 if __name__ == "__main__":
-    # app.debug=True
-    # print('HERE')
-    # app.run()
+    app.run()
 
-    control = RandomController(driver)
-    control.call_start()
+    # To start manually without using flask API:
+    # control = RandomController(driver)
+    # control.call_start()

@@ -32,7 +32,7 @@ class NavigationState:
 
 class ReturnToBaseState:
     def __init__(self):
-        self.hit_front_bar = False
+        pass
 
 class DriveUpBaseState:
     def __init__(self):
@@ -48,7 +48,8 @@ class RandomController:
         self.lock = Lock()
         self.cntrl_thread = None
 
-        self.state = States.MOVE_OFF_BASE
+        # self.state = States.MOVE_OFF_BASE
+        self.state = States.RETURN_TO_BASE
         self.state_data = MoveOffBaseState()
 
     def call_start(self):
@@ -92,7 +93,7 @@ class RandomController:
     #     self.lock.release()
 
     # drive up onto base station
-    def move_to_base_station(self):
+    def drive_up_base_station(self):
         for i in self.driver.camera.getRecognitionObjects():
             model_name = i.get_model()
 
@@ -118,7 +119,7 @@ class RandomController:
         if self.state_data.time_counter <= 175:
             self.driver.move('backward')
         elif self.state_data.time_counter <= 230:
-            self.driver.turn('right')
+            self.driver.turn('left')
         else:
             self.transition_state(States.NAVIGATION)
             return
@@ -127,27 +128,25 @@ class RandomController:
 
     # back to base station
     def back_to_base_station(self):
-        pass
-        # TODO: correctly implement this
-        # if self.state_data.hit_front_bar == False:
-        #     self.random_navigation()
+        self.random_navigation()
+        print('0')
 
-        #     for i in self.driver.camera.getRecognitionObjects():
-        #         model_name = i.get_model()
-        #         # print(str(model_name))
+        for i in self.driver.camera.getRecognitionObjects():
+            model_name = i.get_model()
+            # print(str(model_name))
 
-        #         if model_name == b'base station bar':
-        #             position = i.get_position()
-        #             depth = float(position[2])
-        #             # print(depth)
+            print('1')
+            if model_name == b'base station bar':
+                print('2')
+                position = i.get_position()
+                depth = float(position[2])
+                # print(depth)
 
-        #             if depth >= -0.8:
-        #                 self.driver.move('stop')
-        #                 self.state_data.hit_front_bar = True
-
-        #             break
-        # else:
-        #     self.transition_state(DRIVE_UP_BASE)
+                if depth >= -0.8:
+                    print('3')
+                    self.driver.move('stop')
+                    self.transition_state(DRIVE_UP_BASE)
+                    return
 
     # random navigation
     def random_navigation(self):
@@ -199,10 +198,7 @@ class RandomController:
             battery_value = self.driver.get_battery_value()
             print(f'battery: {battery_value}')
             # self.driver.battery_value -= 0.0001
-            self.driver.battery_value -= 0.001
-
-            if battery_value < LOW_BATT_VAL:
-                self.transition_state(States.RETURN_TO_BASE)
+            self.driver.battery_value -= 0.01
 
             print(self.state)
 
@@ -211,12 +207,17 @@ class RandomController:
             elif self.state == States.MOVE_OFF_BASE:
                 self.move_off_base_station()
             elif self.state == States.NAVIGATION:
-                self.random_navigation()
+                if battery_value < LOW_BATT_VAL:
+                    self.transition_state(States.RETURN_TO_BASE)
+                else:
+                    self.random_navigation()
             elif self.state == States.RETURN_TO_BASE:
                 self.back_to_base_station()
             elif self.state == States.DRIVE_UP_BASE:
-                self.move_to_base_station()
+                self.drive_up_base_station()
             elif self.state == States.DUMP:
                 self.dump()
 
             self.lock.release()
+
+        print('END LOOP')
