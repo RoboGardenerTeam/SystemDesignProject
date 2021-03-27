@@ -1297,5 +1297,5 @@ Robot {
   physics Physics {
   }
   locked TRUE
-  controller "robot_controller_six"
+  controller ""
 }

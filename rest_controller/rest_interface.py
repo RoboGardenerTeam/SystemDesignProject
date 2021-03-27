@@ -13,8 +13,8 @@ def run_auto_control():
     # instantiate the random controller class
     control = RandomController(driver)
     # start the control algorithm
-    control.start()
-    return jsonify({'message' : "Started Controller"})
+    ret = control.call_start()
+    return jsonify({'message' : ret})
 
 @app.route('/pause')
 def pause_control():
@@ -25,13 +25,13 @@ def pause_control():
 @app.route('/stop')
 def stop_control():
     # send signal to controller to return to base
-    # TODO: implement this
+    control.call_return_to_base()
     return jsonify({'message' : 'Returning to base'})
 
 @app.route('/battery')
 def get_battery():
     # TODO: implement battery getter
-    return jsonify({'battery' : driver.get_battery()})
+    return jsonify({'battery' : driver.get_battery_value()})
 
 @app.route('/baseFill')
 def get_base_fill():
@@ -45,4 +45,5 @@ def get_status():
     
 
 if __name__ == "__main__":
+    # app.debug=True
     app.run()
