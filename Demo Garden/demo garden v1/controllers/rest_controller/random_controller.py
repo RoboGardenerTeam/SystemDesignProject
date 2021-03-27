@@ -40,7 +40,7 @@ class DriveUpBaseState:
 
 class DumpState:
     def __init__(self):
-        pass
+        self.time_counter = 0
 
 class RandomController:
     def __init__(self, driver):
@@ -48,8 +48,7 @@ class RandomController:
         self.lock = Lock()
         self.cntrl_thread = None
 
-        # self.state = States.MOVE_OFF_BASE
-        self.state = States.RETURN_TO_BASE
+        self.state = States.MOVE_OFF_BASE
         self.state_data = MoveOffBaseState()
 
     def call_start(self):
@@ -105,8 +104,9 @@ class RandomController:
                 if deviation <= 0.03 and deviation >= -0.03:
                     if depth <= -0.1:
                         self.driver.move('forward')
-
-                    self.transition_state(States.DUMP)
+                    else:
+                        self.transition_state(States.DUMP)
+                        return
                 elif deviation < -0.03:
                     self.driver.turn('left')
                 elif deviation > 0.03:
@@ -197,22 +197,21 @@ class RandomController:
             self.driver.move('forward')
 
     def dump(self):
-        pass
-        # if self.TIME_COUNT <= self.DUMP_TIME + 150:
-        #     self.driver.front_motor.setPosition(2.5)
-        #     self.driver.front_motor.setVelocity(1.0)
-        #     self.driver.bottom_motor.setPosition(1.5)
-        #     self.driver.bottom_motor.setVelocity(0.5)
-        # elif self.TIME_COUNT <= self.DUMP_TIME + 300:
-        #     self.driver.front_motor.setPosition(0.0)
-        #     self.driver.front_motor.setVelocity(1.0)
-        #     self.driver.bottom_motor.setPosition(0.0)
-        #     self.driver.bottom_motor.setVelocity(0.5)
-        # elif self.TIME_COUNT <= self.DUMP_TIME + 350:
-        #     self.AT_BASE_STATION = False
-        #     self.MOVE_OFF = True #TODO remove this
-        #     self.RETURN_TO_BASE = False
-        #     self.DUMP_TIME = 0
+        if self.state_data.time_counter <= 150:
+            self.driver.front_motor.setPosition(2.5)
+            self.driver.front_motor.setVelocity(1.0)
+            self.driver.bottom_motor.setPosition(1.5)
+            self.driver.bottom_motor.setVelocity(0.5)
+        elif self.state_data.time_counter <= 300:
+            self.driver.front_motor.setPosition(0.0)
+            self.driver.front_motor.setVelocity(1.0)
+            self.driver.bottom_motor.setPosition(0.0)
+            self.driver.bottom_motor.setVelocity(0.5)
+        elif self.state_data.time_counter <= 350:
+            self.transition_state(States.AT_BASE)
+            return
+
+        self.state_data.time_counter += 1
 
     def main_loop(self):
         while self.driver.state_of_robot() != -1:
