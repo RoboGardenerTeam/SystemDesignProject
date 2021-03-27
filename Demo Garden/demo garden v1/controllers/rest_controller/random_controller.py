@@ -128,28 +128,51 @@ class RandomController:
 
     # back to base station
     def back_to_base_station(self):
-        self.random_navigation()
-        print('0')
+        self.navigation_to_base_station()
 
         for i in self.driver.camera.getRecognitionObjects():
             model_name = i.get_model()
-            # print(str(model_name))
 
-            print('1')
             if model_name == b'base station bar':
-                print('2')
                 position = i.get_position()
                 depth = float(position[2])
-                # print(depth)
 
                 if depth >= -0.8:
-                    print('3')
-                    self.driver.move('stop')
-                    self.transition_state(DRIVE_UP_BASE)
+                    self.transition_state(States.DRIVE_UP_BASE)
                     return
+
+    def navigation_to_base_station(self):
+        left_sensors_value = np.array([
+            sensor.getValue() for sensor in
+            [self.driver.sensors[0], self.driver.sensors[1], self.driver.sensors[2]]])
+        right_sensors_value = np.array([
+            sensor.getValue() for sensor in
+            [self.driver.sensors[3], self.driver.sensors[4], self.driver.sensors[5]]])
+        if (np.any(left_sensors_value < 1000)):
+            self.driver.turn('right')
+        elif (np.any(right_sensors_value < 1000)):
+            self.driver.turn('left')
+        else:
+            self.driver.move('forward')
+
+        # if close to an object on the left, turn right
+        if (np.any(left_sensors_value < 1000)):
+            self.driver.turn('right')
+        # if close to an object on the right, turn left
+        elif (np.any(right_sensors_value < 1000)):
+            self.driver.turn('left')
+        # else drive forward
+        else:
+            self.driver.move('forward')
 
     # random navigation
     def random_navigation(self):
+        battery_value = self.driver.get_battery_value()
+
+        if battery_value < LOW_BATT_VAL:
+            self.transition_state(States.RETURN_TO_BASE)
+            return
+
         left_sensors_value = np.array([
             sensor.getValue() for sensor in
             [self.driver.sensors[0], self.driver.sensors[1], self.driver.sensors[2]]])
@@ -195,6 +218,7 @@ class RandomController:
         while self.driver.state_of_robot() != -1:
             self.lock.acquire()
 
+            # all this battery stuff not necessary here, just useful to print
             battery_value = self.driver.get_battery_value()
             print(f'battery: {battery_value}')
             # self.driver.battery_value -= 0.0001
@@ -207,10 +231,7 @@ class RandomController:
             elif self.state == States.MOVE_OFF_BASE:
                 self.move_off_base_station()
             elif self.state == States.NAVIGATION:
-                if battery_value < LOW_BATT_VAL:
-                    self.transition_state(States.RETURN_TO_BASE)
-                else:
-                    self.random_navigation()
+                self.random_navigation()
             elif self.state == States.RETURN_TO_BASE:
                 self.back_to_base_station()
             elif self.state == States.DRIVE_UP_BASE:
