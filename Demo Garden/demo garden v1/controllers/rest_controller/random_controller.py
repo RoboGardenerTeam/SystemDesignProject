@@ -17,6 +17,7 @@ class States(Enum):
     RETURN_TO_BASE = 4
     DRIVE_UP_BASE = 5
     DUMP = 6
+    PAUSE = 7
 
 class AtBaseState:
     def __init__(self):
@@ -42,6 +43,10 @@ class DumpState:
     def __init__(self):
         self.time_counter = 0
 
+class Pause:
+    def __init__(self):
+        pass
+
 class RandomController:
     def __init__(self, driver):
         self.driver = driver
@@ -58,13 +63,57 @@ class RandomController:
         return "Thread started"
 
     def call_return_to_base(self):
+        success = False
         with self.lock:
-            self.transition_state(States.RETURN_TO_BASE)
+            if self.state == States.NAVIGATION:
+                success = True
+                self.transition_state(States.RETURN_TO_BASE)
+        if success:
+            return "returning to base"
+        else: 
+            return "cannot return to base now"
 
     def call_continue(self):
+        success = False
         with self.lock:
-            if (self.state == States.AT_BASE):
+            if self.state == States.AT_BASE:
+                success = True
                 self.transition_state(States.MOVE_OFF_BASE)
+            if self.state == States.PAUSE:
+                success = True
+                self.transition_state(States.NAVIGATION)
+        if success:
+            return "continue success"
+        else:
+            return "continue fail"
+
+    def call_pause(self):
+        success = False
+        with self.lock:
+            if self.state == States.NAVIGATION:
+                success = True
+                self.transition_state(States.PAUSE)
+        if success:
+            return "pause success"
+        else:
+            return "pause fail"
+
+    def get_status(self):
+        current_status = self.state
+        if current_status == States.AT_BASE:
+            return "Waiting at base station"
+        elif current_status == States.MOVE_OFF_BASE:
+            return "Leaving base station"
+        elif current_status == States.NAVIGATION:
+            return "Navigating"
+        elif current_status == States.RETURN_TO_BASE:
+            return "Returning to base station"
+        elif current_status == States.DRIVE_UP_BASE:
+            return "Returning to base station"
+        elif current_status == States.DUMP:
+            return "Dumping load"
+        elif self.state == States.PAUSE:
+            return "Paused"
 
     # ALWAYS IMMEDIATELY RETURN AFTER CALLING THIS METHOD!!!
     # state_data will become invalid if you don't immediately return
@@ -83,17 +132,8 @@ class RandomController:
             self.state_data = DriveUpBaseState()
         elif self.state == States.DUMP:
             self.state_data = DumpState()
-
-    # # set the stopping condition of the control loop
-    # def terminate(self):
-    #     self.lock.acquire()
-    #     self.RUNNING = False
-    #     self.TIME_COUNT = 0
-    #     self.DUMP_TIME = 0
-    #     self.STOP_FRONT_BAR = False
-    #     self.AT_BASE_STATION = False
-    #     self.START_NAVIGATION = False
-    #     self.lock.release()
+        elif self.state == States.PAUSE:
+            self.state_data == Pause()
 
     # drive up onto base station
     def drive_up_base_station(self):
@@ -109,6 +149,7 @@ class RandomController:
                     if depth <= -0.1:
                         self.driver.move('forward')
                     else:
+                        self.driver.move('stop')
                         self.transition_state(States.DUMP)
                         return
                 elif deviation < -0.03:
@@ -242,5 +283,7 @@ class RandomController:
                     self.drive_up_base_station()
                 elif self.state == States.DUMP:
                     self.dump()
+                elif self.state == States.PAUSE:
+                    self.driver.move('stop')
 
         print('END LOOP')
