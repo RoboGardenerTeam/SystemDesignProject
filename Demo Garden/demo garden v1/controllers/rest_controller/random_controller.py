@@ -58,9 +58,13 @@ class RandomController:
         return "Thread started"
 
     def call_return_to_base(self):
-        self.lock.acquire()
-        self.RETURN_TO_BASE = True
-        self.lock.release()
+        with self.lock:
+            self.transition_state(States.RETURN_TO_BASE)
+
+    def call_continue(self):
+        with self.lock:
+            if (self.state == States.AT_BASE):
+                self.transition_state(States.MOVE_OFF_BASE)
 
     # ALWAYS IMMEDIATELY RETURN AFTER CALLING THIS METHOD!!!
     # state_data will become invalid if you don't immediately return
@@ -213,31 +217,30 @@ class RandomController:
 
         self.state_data.time_counter += 1
 
+    def chill_at_base(self):
+        self.driver.move('stop')
+        self.driver.battery_value = 1.0 # recharge immediately up to full battery
+
     def main_loop(self):
         while self.driver.state_of_robot() != -1:
-            self.lock.acquire()
+            with self.lock:
+                battery_value = self.driver.get_battery_value()
+                self.driver.battery_value -= 0.0001
 
-            # all this battery stuff not necessary here, just useful to print
-            battery_value = self.driver.get_battery_value()
-            print(f'battery: {battery_value}')
-            # self.driver.battery_value -= 0.0001
-            self.driver.battery_value -= 0.01
+                print(self.state)
+                print(f'battery: {battery_value}')
 
-            print(self.state)
-
-            if self.state == States.AT_BASE:
-                self.driver.move('stop') # do nothing basically?
-            elif self.state == States.MOVE_OFF_BASE:
-                self.move_off_base_station()
-            elif self.state == States.NAVIGATION:
-                self.random_navigation()
-            elif self.state == States.RETURN_TO_BASE:
-                self.back_to_base_station()
-            elif self.state == States.DRIVE_UP_BASE:
-                self.drive_up_base_station()
-            elif self.state == States.DUMP:
-                self.dump()
-
-            self.lock.release()
+                if self.state == States.AT_BASE:
+                    self.chill_at_base()
+                elif self.state == States.MOVE_OFF_BASE:
+                    self.move_off_base_station()
+                elif self.state == States.NAVIGATION:
+                    self.random_navigation()
+                elif self.state == States.RETURN_TO_BASE:
+                    self.back_to_base_station()
+                elif self.state == States.DRIVE_UP_BASE:
+                    self.drive_up_base_station()
+                elif self.state == States.DUMP:
+                    self.dump()
 
         print('END LOOP')

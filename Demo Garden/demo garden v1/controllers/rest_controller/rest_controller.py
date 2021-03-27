@@ -28,6 +28,12 @@ def stop_control():
     control.call_return_to_base()
     return jsonify({'message' : 'Returning to base'})
 
+@app.route('/continue')
+def continue_control():
+    # if robot chilling at base station, start a new run
+    control.call_continue()
+    return jsonify({'message' : 'Starting a new run'})
+
 @app.route('/battery')
 def get_battery():
     # TODO: implement battery getter
