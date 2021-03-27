@@ -40,10 +40,13 @@ def get_base_fill():
 
 @app.route('/status')
 def get_status():
-    # TODO: implement status getter 
+    # TODO: implement status getter
     return jsonify({'status' : 'implement status getter'})
-    
 
 if __name__ == "__main__":
     # app.debug=True
-    app.run()
+    # print('HERE')
+    # app.run()
+
+    control = RandomController(driver)
+    control.call_start()
