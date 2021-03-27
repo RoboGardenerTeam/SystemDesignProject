@@ -164,7 +164,6 @@ libraries/*.hpp
 *.slo
 *.lo
 *.o
-*.obj
 
 # Precompiled Headers
 *.gch
