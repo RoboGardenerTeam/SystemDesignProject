@@ -1,14 +1,122 @@
 """robot_cbasic_controller_z"""
 
+# need to import Supervisor 
 from controller import Robot, Supervisor
 import numpy as np
 import math
 import random
 from random import randrange
 
-# set up robot
-# robot = Robot()
+# remember to activate 'supervisor' in the robot node
+# and name 'model' of all pine cone nodes as 'pine cone'
+
+# robot should be supervisor to make pine cones disappear
 robot = Supervisor()
+
+# global variables
+found = False
+id = None 
+
+# change direction when the robot find a pine cone
+def toward_pinecone(objects):
+    # found will be up after the robot detect something
+    global found
+    # id of the detected object
+    global id
+        
+    # if the robot found a object
+    if found:
+        # it indicates the node of the object
+        # have to do this because there is no option to delete the node using ID
+        p = robot.getFromId(id)
+        # object
+        pinecone = None
+        # find the exact pine cone we found before because the robot can be
+        # stranded if there are more than 2 pine cones
+        # the robot is going to the pine cone what it found first
+        for i in objects:
+            if i.get_id() == id:
+                pinecone = i
+        # if the pine cone is not in camera sight, clear flags 
+        # and go back to the search state
+        if pinecone is None:
+            found = False
+            id = None
+            return
+        # get the position of the pine cone    
+        position = pinecone.get_position()
+        # print(position)
+        x = float(position[0])
+        z = float(position[2])
+        
+        # adjust the robot's path on x axis, so make the object in center
+        if (x > 0.1):
+            turn('right')
+        elif (x < -0.1):
+            turn('left')
+        else:
+            # if the robot is close enough to the pine cone, remove the pine cone
+            # and go back to the search state
+            if z > -1:
+                # get the model name of the object
+                model = str(pinecone.get_model())
+                # idk why the simulator puts b in front of the model name
+                # the model names in the node and here should be same
+                if model == "b'pine cone'":
+                    # remove the node we stored above
+                    p.remove()
+                # clear the flags    
+                found = False
+                id = None
+                
+    # check if pine cones are in detected objects 
+    else:
+        # initial distance
+        temp_dist = -1000
+        # check every object on camera
+        for i in objects:
+            # get the model name of the object
+            model = str(i.get_model())
+            # get the z axis distance
+            dist = i.get_position()[2]
+            # initial precision
+            precision = 1
+            # distance between the robot and the pine cone is
+            # less than 3m
+            if i.get_position()[2] < -3:
+                precision = 0
+            # between 1m to 3m   
+            elif i.get_position()[2] > -1 and i.get_position()[2] < -3:
+                precision = 0.5
+            # less than 1m
+            elif i.get_position()[2] > -1:
+                precision = 0.8
+
+            # set a random number
+            rn = random.random()
+            # find the nearest pine cone
+            if (model == "b'pine cone'") and (dist > temp_dist):
+                # if precision is larger than rd, True Positive case
+                if rn < precision:
+                    id = i.get_id()
+                    temp_dist = dist
+                    found = True                             
+            else:
+                # misdetection. False Positive
+                # the robot will be heading to this object           
+                if (rn > precision):
+                    id = i.get_id()
+                    temp_dist = dist
+                    found = True
+                # miss the object. True Negative  
+                else:
+                    found = False
+                    id = None
+
+# until here is my code
+# check automatic_navigation() to see how I use this
+###########################################################################
+
 
 # get time steps
 timestep = int(robot.getBasicTimeStep())
@@ -88,86 +196,8 @@ def turn(direction, control=1.0):
 
 reorienting = False
 new_orientation = 0
-found = False
-id = None 
-# change direction when the robot find a pine cone
-def toward_pinecone(objects):
-    
-    global found
-    global id
-    # print(found)
-    # move('forward')
-    
-    # if the robot found the pine cone 
-    if found:
-        # print(id)
-        p = robot.getFromId(id)
-        pinecone = None
-        # find the exact pine cone we found before because the robot can be
-        # stranded if there are more than 2 pine cones, so the robot will go
-        # to the pine cone what it found first
-        for i in objects:
-            if i.get_id() == id:
-                pinecone = i
-        # if the pine cone is not in camera sight
-        if pinecone is None:
-            found = False
-            id = None
-            return
-        # get the position of the pine cone    
-        position = pinecone.get_position()
-        print(position)
-        x = float(position[0])
-        z = float(position[2])
-        
-        # adjust the robot's path
-        if (x > 0.1):
-            turn('right')
-        elif (x < -0.1):
-            turn('left')
-        else:
-            # if the robot is close enough to the pine cone, try to find another
-            if z > -1:
-                # turn('right')
-                model = str(pinecone.get_model())
-                # print(model)
-                if model == "b'pine cone'":
-                    p.remove()
-                found = False
-                id = None   
-            # if z < -3:
-                # move('forward')
-            else:
-                found = False
-                
-    # check if pine cones are in detected objects 
-    else:
-        temp_dist = -1000
-        for i in objects:
-            model = str(i.get_model())
-            dist = i.get_position()[2]
-            precision = random.random()
-            if i.get_position()[2] < -3:
-                precision = precision * 0.3
-            # print(dist)
-            # 90 percent object detection accuracy
-            # go to the nearlest pine cone
-            if (model == "b'pine cone'") and (dist > temp_dist):
-                if precision > 0.1:
-                    # save the id of the first pine cone which the robot found
-                    id = i.get_id()
-                    temp_dist = dist
-                    found = True                    
-            else:
-                # 1 percent chance of misdetection
-                if (precision < 0.5):
-                    id = i.get_id()
-                    temp_dist = dist
-                    found = True
-                # miss the object    
-                else:
-                    found = False
-                    id = None  
+
+  
 
 def rotate_vector_radians(vector, theta):
     rotation_matrix = np.array([
@@ -205,8 +235,11 @@ def automatic_navigation():
         new_orientation = randrange(0, 360)
         reorienting = True
     else:
+        # need to move forward otherwise the robot stay still
         move('forward')
         toward_pinecone(camera.getRecognitionObjects())
+        
+        
 # automatical navigation by sensors
 # def automatic_navigation(control=1.0):
     # left_sensors_value = np.array([s.getValue() for s in [sensorL1, sensorL2, sensorL3]])
