@@ -37,7 +37,17 @@ def get_battery():
 
 @app.route('/status')
 def get_status():
-    return jsonify({'message' : control.get_status()})
+    global control
+
+    if control is None:
+        print('CONTROL NONE')
+        return jsonify({
+                'status': "AT_BASE",
+                'statusMessage': "Waiting at base station"
+            })
+    else:
+        print('CONTROL NOT NONE')
+        return jsonify(control.get_status())
 
 if __name__ == "__main__":
     app.run(port=5001)

@@ -84,21 +84,45 @@ class RandomController:
 
     def get_status(self):
         if self.state == States.AT_BASE:
-            return "Waiting at base station"
+            return {
+                'status': "AT_BASE",
+                'statusMessage': "Waiting at base station"
+            }
         elif self.state == States.MOVE_OFF_BASE:
-            return "Leaving base station"
+            return {
+                'status': "MOVE_OFF_BASE",
+                'statusMessage': "Leaving base station"
+            }
         elif self.state == States.NAVIGATION:
-            return "Navigating"
+            return { 
+                'status': "MOVE_OFF_BASE",
+                'statusMessage': "Navigating"
+            }
         elif self.state == States.RETURN_TO_BASE:
-            return "Returning to base station"
+            return { 
+                'status': "RETURN_TO_BASE",
+                'statusMessage': "Returning to base station"
+            }
         elif self.state == States.DRIVE_UP_BASE:
-            return "Returning to base station"
+            return {
+                'status': "DRIVE_UP_BASE",
+                'statusMessage': "Parking at the base station"
+            }
         elif self.state == States.DUMP:
-            return "Dumping load"
+            return {
+                'status': "DUMP",
+                'statusMessage': "Dumping load"
+            } 
         elif self.state == States.PAUSE:
-            return "Paused"
+            return {
+                'status': "PAUSE",
+                'statusMessage': "Paused"
+            } 
         else:
-            return "Invalid state"
+            return {
+                'status': "INV",
+                'statusMessage': "Invalid state"
+            }
 
     # ALWAYS IMMEDIATELY RETURN AFTER CALLING THIS METHOD!!!
     # state_data will become invalid if you don't immediately return
