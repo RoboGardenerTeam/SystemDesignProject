@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# https://github.com/cyberbotics/webots/blob/master/projects/humans/pedestrian/controllers/pedestrian/pedestrian.py
+
 """Pedestrian class container."""
 from controller import Supervisor
 
