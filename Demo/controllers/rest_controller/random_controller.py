@@ -5,9 +5,6 @@ from robot_driver import Driver
 from threading import Lock, Thread
 from enum import Enum, auto
 
-logging.basicConfig(filename='example.log', level=logging.DEBUG)
-# logging.debug('This message should go to the log file')
-
 LOW_BATT_VAL = 0.2
 
 class States(Enum):
