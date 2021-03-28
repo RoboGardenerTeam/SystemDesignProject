@@ -95,7 +95,7 @@ class RandomController:
             }
         elif self.state == States.NAVIGATION:
             return { 
-                'status': "MOVE_OFF_BASE",
+                'status': "NAVIGATION",
                 'statusMessage': "Navigating"
             }
         elif self.state == States.RETURN_TO_BASE:
