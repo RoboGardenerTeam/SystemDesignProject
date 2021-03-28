@@ -50,7 +50,7 @@ def get_status():
     return jsonify({'status' : 'implement status getter'})
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=5001)
 
     # To start manually without using flask API:
     # control = RandomController(driver)
