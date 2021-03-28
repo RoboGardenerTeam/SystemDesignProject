@@ -33,14 +33,14 @@ def continue_control():
 
 @app.route('/battery')
 def get_battery():
-    return jsonify({'battery' : driver.get_battery_value()})
+    return jsonify({'message' : driver.get_battery_value()})
 
 @app.route('/status')
 def get_status():
-    return jsonify({'status' : control.get_status()})
+    return jsonify({'message' : control.get_status()})
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=5001)
 
     # To start manually without using flask API:
     # control = RandomController(driver)

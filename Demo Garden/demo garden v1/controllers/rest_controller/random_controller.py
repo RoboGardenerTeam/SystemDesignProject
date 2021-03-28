@@ -60,43 +60,27 @@ class RandomController:
         if self.cntrl_thread is None:
             self.cntrl_thread = Thread(target=self.main_loop)
             self.cntrl_thread.start()
-        return "Thread started"
+        return self.get_status()
 
     def call_return_to_base(self):
-        success = False
         with self.lock:
             if self.state == States.NAVIGATION:
-                success = True
                 self.transition_state(States.RETURN_TO_BASE)
-        if success:
-            return "returning to base"
-        else: 
-            return "cannot return to base now"
+        return self.get_status()
 
     def call_continue(self):
-        success = False
         with self.lock:
             if self.state == States.AT_BASE:
-                success = True
                 self.transition_state(States.MOVE_OFF_BASE)
             if self.state == States.PAUSE:
-                success = True
                 self.transition_state(States.NAVIGATION)
-        if success:
-            return "continue success"
-        else:
-            return "continue fail"
+        return self.get_status()
 
     def call_pause(self):
-        success = False
         with self.lock:
             if self.state == States.NAVIGATION:
-                success = True
                 self.transition_state(States.PAUSE)
-        if success:
-            return "pause success"
-        else:
-            return "pause fail"
+        return self.get_status()
 
     def get_status(self):
         current_status = self.state
@@ -266,7 +250,7 @@ class RandomController:
         while self.driver.state_of_robot() != -1:
             with self.lock:
                 battery_value = self.driver.get_battery_value()
-                self.driver.battery_value -= 0.0001
+                self.driver.battery_value -= 0.00001
 
                 print(self.state)
                 print(f'battery: {battery_value}')
