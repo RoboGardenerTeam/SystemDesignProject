@@ -10,44 +10,34 @@ control = None
 @app.route('/start')
 def run_auto_control():
     global control
-    # instantiate the random controller class
-    control = RandomController(driver)
-    # start the control algorithm
-    ret = control.call_start()
-    return jsonify({'message' : ret})
+
+    if control is None:
+        control = RandomController(driver)
+        message = control.call_start()
+    else:
+        message = control.call_continue()
+
+    return jsonify({'message' : message})
 
 @app.route('/pause')
 def pause_control():
-    # send signal to controller to terminate
-    control.terminate()
-    return jsonify({'message' : "Stopped Controller"})
+    return jsonify({'message' : control.call_pause()})
 
-@app.route('/stop')
+@app.route('/gohome')
 def stop_control():
-    # send signal to controller to return to base
-    control.call_return_to_base()
-    return jsonify({'message' : 'Returning to base'})
+    return jsonify({'message' : control.call_return_to_base()})
 
 @app.route('/continue')
 def continue_control():
-    # if robot chilling at base station, start a new run
-    control.call_continue()
-    return jsonify({'message' : 'Starting a new run'})
+    return jsonify({'message' : control.call_continue()})
 
 @app.route('/battery')
 def get_battery():
-    # TODO: implement battery getter
-    return jsonify({'battery' : driver.get_battery_value()})
-
-@app.route('/baseFill')
-def get_base_fill():
-    # TODO: implement actual base fill getter
-    return jsonify({'base_fill' : 0.43})
+    return jsonify({'message' : driver.get_battery_value()})
 
 @app.route('/status')
 def get_status():
-    # TODO: implement status getter
-    return jsonify({'status' : 'implement status getter'})
+    return jsonify({'message' : control.get_status()})
 
 if __name__ == "__main__":
     app.run(port=5001)

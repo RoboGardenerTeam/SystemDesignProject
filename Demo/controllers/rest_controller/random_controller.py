@@ -3,7 +3,7 @@ import logging
 import random
 from robot_driver import Driver
 from threading import Lock, Thread
-from enum import Enum
+from enum import Enum, auto
 
 logging.basicConfig(filename='example.log', level=logging.DEBUG)
 # logging.debug('This message should go to the log file')
@@ -11,12 +11,13 @@ logging.basicConfig(filename='example.log', level=logging.DEBUG)
 LOW_BATT_VAL = 0.2
 
 class States(Enum):
-    AT_BASE = 1
-    MOVE_OFF_BASE = 2
-    NAVIGATION = 3
-    RETURN_TO_BASE = 4
-    DRIVE_UP_BASE = 5
-    DUMP = 6
+    AT_BASE = auto()
+    MOVE_OFF_BASE = auto()
+    NAVIGATION = auto()
+    RETURN_TO_BASE = auto()
+    DRIVE_UP_BASE = auto()
+    DUMP = auto()
+    PAUSE = auto()
 
 class AtBaseState:
     def __init__(self):
@@ -45,6 +46,10 @@ class DumpState:
     def __init__(self):
         self.time_counter = 0
 
+class PauseState:
+    def __init__(self):
+        pass
+
 class RandomController:
     def __init__(self, driver):
         self.driver = driver
@@ -58,16 +63,45 @@ class RandomController:
         if self.cntrl_thread is None:
             self.cntrl_thread = Thread(target=self.main_loop)
             self.cntrl_thread.start()
-        return "Thread started"
+        return self.get_status()
 
     def call_return_to_base(self):
         with self.lock:
-            self.transition_state(States.RETURN_TO_BASE)
+            if self.state == States.NAVIGATION:
+                self.transition_state(States.RETURN_TO_BASE)
+        return self.get_status()
 
     def call_continue(self):
         with self.lock:
-            if (self.state == States.AT_BASE):
+            if self.state == States.AT_BASE:
                 self.transition_state(States.MOVE_OFF_BASE)
+            if self.state == States.PAUSE:
+                self.transition_state(States.NAVIGATION)
+        return self.get_status()
+
+    def call_pause(self):
+        with self.lock:
+            if self.state == States.NAVIGATION:
+                self.transition_state(States.PAUSE)
+        return self.get_status()
+
+    def get_status(self):
+        if self.state == States.AT_BASE:
+            return "Waiting at base station"
+        elif self.state == States.MOVE_OFF_BASE:
+            return "Leaving base station"
+        elif self.state == States.NAVIGATION:
+            return "Navigating"
+        elif self.state == States.RETURN_TO_BASE:
+            return "Returning to base station"
+        elif self.state == States.DRIVE_UP_BASE:
+            return "Returning to base station"
+        elif self.state == States.DUMP:
+            return "Dumping load"
+        elif self.state == States.PAUSE:
+            return "Paused"
+        else:
+            return "Invalid state"
 
     # ALWAYS IMMEDIATELY RETURN AFTER CALLING THIS METHOD!!!
     # state_data will become invalid if you don't immediately return
@@ -86,17 +120,8 @@ class RandomController:
             self.state_data = DriveUpBaseState()
         elif self.state == States.DUMP:
             self.state_data = DumpState()
-
-    # # set the stopping condition of the control loop
-    # def terminate(self):
-    #     self.lock.acquire()
-    #     self.RUNNING = False
-    #     self.TIME_COUNT = 0
-    #     self.DUMP_TIME = 0
-    #     self.STOP_FRONT_BAR = False
-    #     self.AT_BASE_STATION = False
-    #     self.START_NAVIGATION = False
-    #     self.lock.release()
+        elif self.state == States.PAUSE:
+            self.state_data == PauseState()
 
     # drive up onto base station
     def drive_up_base_station(self):
@@ -112,6 +137,7 @@ class RandomController:
                     if depth <= -0.1:
                         self.driver.move('forward')
                     else:
+                        self.driver.move('stop')
                         self.transition_state(States.DUMP)
                         return
                 elif deviation < -0.03:
@@ -125,7 +151,7 @@ class RandomController:
     def move_off_base_station(self):
         if self.state_data.time_counter <= 175:
             self.driver.move('backward')
-        elif self.state_data.time_counter <= 230:
+        elif self.state_data.time_counter <= 270:
             self.driver.turn('left')
         else:
             self.transition_state(States.NAVIGATION)
@@ -321,11 +347,14 @@ class RandomController:
         self.driver.move('stop')
         self.driver.battery_value = 1.0 # recharge immediately up to full battery
 
+    def pause_robot(self):
+        self.driver.move('stop')
+
     def main_loop(self):
         while self.driver.state_of_robot() != -1:
             with self.lock:
                 battery_value = self.driver.get_battery_value()
-                self.driver.battery_value -= 0.0001
+                self.driver.battery_value -= 0.00001
 
                 print(self.state)
                 print(f'battery: {battery_value}')
@@ -342,6 +371,8 @@ class RandomController:
                     self.drive_up_base_station()
                 elif self.state == States.DUMP:
                     self.dump()
+                elif self.state == States.PAUSE:
+                    self.pause_robot()
 
         print('END LOOP')
 
