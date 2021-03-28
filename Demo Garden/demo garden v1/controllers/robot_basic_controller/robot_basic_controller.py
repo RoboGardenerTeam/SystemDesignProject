@@ -48,6 +48,7 @@ def toward_pinecone(objects):
         # print(position)
         x = float(position[0])
         z = float(position[2])
+       
         
         # adjust the robot's path on x axis, so make the object in center
         if (x > 0.1):
@@ -79,6 +80,7 @@ def toward_pinecone(objects):
             model = str(i.get_model())
             # get the z axis distance
             dist = i.get_position()[2]
+            print(dist)
             # initial precision
             precision = 1
             # distance between the robot and the pine cone is
@@ -86,7 +88,7 @@ def toward_pinecone(objects):
             if i.get_position()[2] < -3:
                 precision = 0
             # between 1m to 3m   
-            elif i.get_position()[2] > -1 and i.get_position()[2] < -3:
+            elif i.get_position()[2] < -1 and i.get_position()[2] > -3:
                 precision = 0.5
             # less than 1m
             elif i.get_position()[2] > -1:
@@ -104,7 +106,7 @@ def toward_pinecone(objects):
             else:
                 # misdetection. False Positive
                 # the robot will be heading to this object           
-                if (rn > precision):
+                if (rn > precision) and i.get_position()[2] > -3:
                     id = i.get_id()
                     temp_dist = dist
                     found = True
@@ -349,5 +351,5 @@ while robot.step(timestep) != -1:
     automatic_navigation()
     # TIME_COUNT = TIME_COUNT + 1
     # back_to_base_station_demo(TIME_COUNT)
-    print(id)
+    # print(id)
     pass
