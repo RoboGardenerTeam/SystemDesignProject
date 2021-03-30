@@ -320,10 +320,10 @@ class RandomController:
                 if i.get_position()[2] < -3:
                     precision = 0
                 # between 1m to 3m
-                elif i.get_position()[2] > -1 and i.get_position()[2] < -3:
+                elif i.get_position()[2] >= -3 and i.get_position()[2] < -1:
                     precision = 0.5
                 # less than 1m
-                elif i.get_position()[2] > -1:
+                elif i.get_position()[2] >= -1:
                     precision = 0.8
 
                 # set a random number
