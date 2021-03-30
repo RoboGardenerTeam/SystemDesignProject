@@ -2,6 +2,7 @@ import numpy as np
 from robot_driver import Driver
 from random_controller import RandomController
 from flask import Flask, jsonify
+import random
 
 app = Flask(__name__)
 driver = Driver()
@@ -50,6 +51,7 @@ def get_status():
         return jsonify(control.get_status())
 
 if __name__ == "__main__":
+    random.seed(2)
     app.run(port=5001)
 
     # To start manually without using flask API:

@@ -234,22 +234,27 @@ class RandomController:
             sensor.getValue() for sensor in
             [self.driver.sensors[3], self.driver.sensors[4], self.driver.sensors[5]]])
 
-        if self.state_data.reorienting:
-            compass_vec = self.driver.compass.getValues()
-            compass_vec = np.array([compass_vec[0], compass_vec[2]])
+        compass_vec = self.driver.compass.getValues()
+        compass_vec = np.array([compass_vec[0], compass_vec[2]])
+        compass_vec = rotate_vector_radians(compass_vec, -np.pi)
+        current_orientation = np.rad2deg(np.arctan2(compass_vec[1], compass_vec[0])) # 0 degrees being diretion of GARDEN x axis (i.e. where garden red arrow points)
 
+        if self.state_data.reorienting:
             new_orientation_vector = np.array([np.cos(np.deg2rad(self.state_data.new_orientation)), np.sin(np.deg2rad(self.state_data.new_orientation))])
             v = rotate_vector_radians(new_orientation_vector, -1 * np.arctan2(compass_vec[1], compass_vec[0]))
-            signed_angle = np.arctan2(v[1], v[0])
+            signed_angle = np.rad2deg(np.arctan2(v[1], v[0]))
 
-            if abs(signed_angle) < 0.087: # 5 degrees
+            if abs(signed_angle) < 5: # 5 degrees
                 self.state_data.reorienting = False
             elif signed_angle > 0:
                 self.driver.turn('left')
             else:
                 self.driver.turn('right')
-        elif (np.any(left_sensors_value < 1000)) or (np.any(right_sensors_value < 1000)):
-            self.state_data.new_orientation = random.randrange(0, 360)
+        elif (np.any(left_sensors_value < 1000)):
+            self.state_data.new_orientation = (current_orientation - random.randrange(90, 180)) % 360
+            self.state_data.reorienting = True
+        elif (np.any(right_sensors_value < 1000)):
+            self.state_data.new_orientation = (current_orientation + random.randrange(90, 180)) % 360
             self.state_data.reorienting = True
         else:
             self.driver.move('forward')
