@@ -54,7 +54,7 @@ class Driver(Supervisor):
         self.wheels[5].setVelocity((randrange(95,99)/100) * inp * self.MAX_SPEED)
 
     # define turning in specific direction
-    def turn(self, direction):
+    def turn(self, direction, control=1.0):
         if direction == 'stop': inp = 0
         if direction == 'right': inp = 1
         if direction == 'left': inp = -1
@@ -62,8 +62,8 @@ class Driver(Supervisor):
         self.wheels[1].setVelocity(-inp * self.MAX_SPEED)
         self.wheels[2].setVelocity(inp * self.MAX_SPEED)
         self.wheels[3].setVelocity(-inp * self.MAX_SPEED)
-        self.wheels[4].setVelocity(inp * self.MAX_SPEED * (randrange(70,99)/100))
-        self.wheels[5].setVelocity(-inp * self.MAX_SPEED * (randrange(90,99)/100))
+        self.wheels[4].setVelocity(inp * self.MAX_SPEED * (randrange(70,99)/100) * control)
+        self.wheels[5].setVelocity(-inp * self.MAX_SPEED * (randrange(90,99)/100) * control)
 
     def state_of_robot(self):
         return self.step(self.TIME_STEP)

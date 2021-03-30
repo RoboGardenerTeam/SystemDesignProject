@@ -211,10 +211,10 @@ class RandomController:
 
         # if close to an object on the left, turn right
         if (np.any(left_sensors_value < 1000)):
-            self.driver.turn('right')
+            self.driver.turn('right', control=0)
         # if close to an object on the right, turn left
         elif (np.any(right_sensors_value < 1000)):
-            self.driver.turn('left')
+            self.driver.turn('left', control=0)
         # else drive forward
         else:
             self.driver.move('forward')
